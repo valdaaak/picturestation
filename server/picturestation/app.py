@@ -338,7 +338,7 @@ def api_auth(ctx: Ctx):
         if u is None:
             with _fails_lock:
                 _fails[ip] = (n + 1, since)
-            log.warning("zly login %r z %s", user, ip)
+            log.warning("failed login %r from %s", user, ip)
             return err(E_LOGIN)
         with _fails_lock:
             _fails.pop(ip, None)
@@ -350,7 +350,7 @@ def api_auth(ctx: Ctx):
             # appka DS photo hlada sid len v cookie s menom PHPSESSID (AbsConnectionManager.getSessionId)
             resp.set_cookie("PHPSESSID", sid, path="/", httponly=True, samesite="lax",
                             max_age=config.SESSION_DAYS * 86400)
-        log.info("login %s z %s", u["username"], ip)
+        log.info("login %s from %s", u["username"], ip)
         return resp
     if m == "logout":
         store.drop_session(ctx.sid)
@@ -921,7 +921,7 @@ def dispatch(req: Request, p: dict, sid):
     except FileNotFoundError:
         resp = err(E_BAD_REQUEST)
     except Exception:
-        log.exception("chyba %s %s", api, method)
+        log.exception("error %s %s", api, method)
         resp = err(E_UNKNOWN)
     if headers:
         resp.headers.update(headers)

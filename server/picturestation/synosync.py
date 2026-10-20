@@ -112,7 +112,7 @@ def fetch():
                     if not _download_face(sid, pid, key):
                         key = None
                 except Exception as e:
-                    log.debug("vyrez tvare %s: %s", name, e)
+                    log.debug("face crop %s: %s", name, e)
                     key = None
             # cache_key vyrezu = "<id fotky>_<cas>"; z tej fotky je vyrez tvare
             cover_unit = None
@@ -148,14 +148,14 @@ def sync_once():
                    [(pid, n, key, cov) for pid, n, _p, key, cov in people])
     db.executemany("INSERT OR IGNORE INTO people_items(person_id, path) VALUES (?,?)", rows)
     db.execute("COMMIT")
-    log.info("ludia zo Synology Photos: %d osob, %d priradeni (%d neplatnych ciest) za %.0f s",
+    log.info("people from Synology Photos: %d persons, %d assignments (%d invalid paths) in %.0f s",
              len(people), len(rows), missing, time.time() - t0)
     return len(people), len(rows)
 
 
 def start():
     if not enabled():
-        log.info("preberanie ludi zo Synology Photos vypnute (chyba SYNO_URL/USER/PASS_FILE)")
+        log.info("people from Synology Photos: off (SYNO_URL/USER/PASS_FILE not set)")
         return
 
     def loop():
@@ -164,7 +164,7 @@ def start():
             try:
                 sync_once()
             except Exception as e:
-                log.warning("preberanie ludi zlyhalo: %s", e)
+                log.warning("people sync failed: %s", e)
             time.sleep(INTERVAL)
 
     threading.Thread(target=loop, name="synosync", daemon=True).start()

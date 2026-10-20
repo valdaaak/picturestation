@@ -389,7 +389,7 @@ def _generate(rel: str, kind: str, size: str, out: str) -> bool:
         os.replace(tmp, out)
         return True
     except Exception as e:
-        log.warning("nahlad %s %s: %s", rel, size, e)
+        log.warning("thumbnail %s %s: %s", rel, size, e)
         try:
             os.remove(tmp)
         except OSError:
@@ -538,7 +538,7 @@ def index_once():
     # poistka: ak prechod videl podozrivo malo (vypadok NFS), nic nepresuvat ani nemazat
     base = max(len(old), len(in_meta))
     if base and len(seen) < 0.5 * base:
-        log.warning("index videl len %d z %d suborov - presuny a mazanie preskakujem", len(seen), base)
+        log.warning("index saw only %d of %d files - skipping move detection and cleanup", len(seen), base)
     else:
         try:
             if old:  # prvy prechod po nasadeni nema s cim porovnat
@@ -549,20 +549,20 @@ def index_once():
                 if ambiguous:
                     moves.record_ambiguous(ambiguous)
         except Exception:
-            log.exception("rozpoznanie presunov zlyhalo")
+            log.exception("move detection failed")
         gone = [p for p in in_meta if p not in seen]
         if gone:
             for i in range(0, len(gone), 500):
                 part = gone[i:i + 500]
                 db.execute(f"DELETE FROM meta WHERE path IN ({','.join('?' * len(part))})", part)
-            log.info("z indexu odstranenych %d suborov, ktore uz nie su na disku", len(gone))
+            log.info("removed %d files from the index that are no longer on disk", len(gone))
         db.execute("BEGIN")
         db.execute("DELETE FROM last_seen")
         db.executemany("INSERT INTO last_seen VALUES (?,?)", seen.items())
         db.execute("COMMIT")
     store.purge_sessions()
     catalog.invalidate()
-    log.info("index hotovy: %d suborov za %.0f s (chyb %d)", n, time.time() - t0, errors)
+    log.info("index done: %d files in %.0f s (%d errors)", n, time.time() - t0, errors)
 
 
 def start_indexer():
@@ -574,7 +574,7 @@ def start_indexer():
             try:
                 index_once()
             except Exception:
-                log.exception("index zlyhal")
+                log.exception("index failed")
             time.sleep(config.INDEX_INTERVAL)
 
     threading.Thread(target=loop, name="indexer", daemon=True).start()

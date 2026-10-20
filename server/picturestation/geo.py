@@ -65,9 +65,9 @@ def _load():
                         if len(c) > 4:
                             _countries[c[0]] = c[4]
             _grid = grid
-            log.info("GeoNames nacitane: %d obci", n)
+            log.info("GeoNames loaded: %d places", n)
         except OSError as e:
-            log.warning("GeoNames nedostupne: %s", e)
+            log.warning("GeoNames not available: %s", e)
             _failed = True
 
 

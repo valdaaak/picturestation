@@ -155,7 +155,7 @@ def rewrite(dir_map, file_map=None, kind="auto"):
     now = int(time.time())
     for old, new in dir_map.items():
         db.execute("INSERT INTO moves(old, new, kind, created) VALUES (?,?,?,?)", (old, new, kind, now))
-        log.info("presun albumu %s -> %s (%s)", old, new, kind)
+        log.info("album moved %s -> %s (%s)", old, new, kind)
     for old, new in (file_map or {}).items():
         db.execute("INSERT INTO moves(old, new, kind, created) VALUES (?,?,?,?)", (old, new, kind + "-file", now))
     return n
