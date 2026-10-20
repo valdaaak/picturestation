@@ -213,6 +213,10 @@ check("admin state", [u["username"] for u in st["users"]] == ["kolega", "spravca
 r = c.post("/api/admin/user_create", data={"username": "x", "password": "12345678"})
 check("admin POST bez JSON = 415", r.status_code == 415, r.status_code)
 check("kratke heslo odmietnute", adm("user_create", {"username": "jana", "password": "kratke"}).status_code == 400)
+r = c.post("/api/admin/user_create", json={"username": "jana", "password": "kratke"})
+check("chyba admin API anglicky", r.json().get("error") == "Password must have at least 8 characters.", r.text)
+r = c.post("/api/admin/user_create", json={"username": "jana", "password": "kratke"}, headers={"X-Lang": "sk"})
+check("chyba admin API po slovensky", r.json().get("error") == "Heslo musí mať aspoň 8 znakov.", r.text)
 check("user_create", adm("user_create", {"username": "jana", "password": "janaheslo1"}).status_code == 200)
 check("group_create", adm("group_create", {"name": "Rodina"}).status_code == 200)
 check("grant skupine", adm("grant", {"type": "group", "name": "Rodina", "path": "2001/Rodina"}).status_code == 200)
@@ -360,6 +364,13 @@ check("admin komentuje", r["success"], r)
 r = call("comment.php", api="SYNO.PhotoStation.Comment", method="list", version="1", id=pid)
 cm = r["data"]["comments"]
 check("zoznam komentarov, meno = prihlaseny", len(cm) == 1 and cm[0]["name"] == "spravca" and cm[0]["comment"] == "Pekná fotka", cm)
+r = c.get(W + "comment.php", params={"api": "SYNO.PhotoStation.Comment", "method": "create", "version": "1",
+                                     "id": pid, "comment": "cez odkaz"}).json()
+check("komentar cez GET (CSRF odkazom) = 105", r.get("error", {}).get("code") == 105, r)
+r = c.get(W + "auth.php", params={"api": "SYNO.PhotoStation.Auth", "method": "logout", "version": "1"}).json()
+check("odhlasenie cez GET = 105", r.get("error", {}).get("code") == 105, r)
+cm = call("comment.php", api="SYNO.PhotoStation.Comment", method="list", version="1", id=pid)["data"]["comments"]
+check("komentar cez GET sa neulozil", len(cm) == 1, cm)
 adm("album_set", {"path": "2001/Rodina", "mode": "public"})
 g4 = TestClient(appmod.app)
 r = gcall(g4, "comment.php", api="SYNO.PhotoStation.Comment", method="create", version="1", id=pid, name="Hosť", comment="ahoj")
@@ -387,6 +398,9 @@ os.makedirs(gdir, exist_ok=True)
 with open(os.path.join(gdir, "cities500.txt"), "w", encoding="utf-8") as fh:
     fh.write("3060972\tBratislava\tBratislava\t\t48.14816\t17.10674\tP\tPPLC\tSK\t\t02\t\t\t\t423737\t\t\tEurope/Bratislava\t2020-01-01\n")
     fh.write("2761369\tVienna\tVienna\t\t48.20849\t16.37208\tP\tPPLC\tAT\t\t09\t\t\t\t1691468\t\t\tEurope/Vienna\t2020-01-01\n")
+with open(os.path.join(gdir, "countryInfo.txt"), "w", encoding="utf-8") as fh:
+    fh.write("#ISO\tISO3\tISO-Numeric\tfips\tCountry\n")
+    fh.write("SK\tSVK\t703\tLO\tSlovakia\n")
 p = os.path.join(ROOT, "2001", "Maxim", "gps.jpg")
 im = Image.new("RGB", (800, 600), (10, 10, 200))
 ex = Image.Exif()
@@ -398,9 +412,15 @@ from picturestation import catalog as _cat  # noqa: E402
 media.index_once()
 _cat.invalidate()
 g = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=ids.item_id("photo", "2001/Maxim/gps.jpg"))
-check("miesto z GPS", g["data"][0]["info"].get("place") == "Bratislava, Slovensko", g["data"][0]["info"])
+check("miesto z GPS (anglicky predvolene)", g["data"][0]["info"].get("place") == "Bratislava, Slovakia", g["data"][0]["info"])
+g = json.loads(c.post(W + "photo.php", data={"api": "SYNO.PhotoStation.Photo", "method": "getinfo", "version": "1",
+                "id": ids.item_id("photo", "2001/Maxim/gps.jpg")}, headers={"X-Lang": "sk"}).text)
+check("miesto z GPS po slovensky (X-Lang)", g["data"][0]["info"].get("place") == "Bratislava, Slovensko", g["data"][0]["info"])
+g = json.loads(c.post(W + "photo.php", data={"api": "SYNO.PhotoStation.Photo", "method": "getinfo", "version": "1",
+                "id": ids.item_id("photo", "2001/Maxim/gps.jpg")}, headers={"Accept-Language": "cs-CZ,cs;q=0.9"}).text)
+check("Accept-Language cs = slovensky", g["data"][0]["info"].get("place") == "Bratislava, Slovensko", g["data"][0]["info"])
 r = call("tag.php", api="SYNO.PhotoStation.Tag", method="list", version="1", type="geo")
-check("zoznam miest", [(t["name"], t["info"]["count"]) for t in r["data"]["tags"]] == [("Bratislava, Slovensko", 1)], r)
+check("zoznam miest", [(t["name"], t["info"]["count"]) for t in r["data"]["tags"]] == [("Bratislava, Slovakia", 1)], r)
 geo_id = r["data"]["tags"][0]["id"]
 r = call("photo.php", api="SYNO.PhotoStation.Photo", method="list", version="1", filter_tag=geo_id, type="photo,video")
 check("fotky z miesta", r["data"]["total"] == 1, r["data"]["total"])
@@ -544,19 +564,19 @@ check("zdielany odkaz plati aj pre vylucene", r["success"] and r["data"]["total"
 av = adm("access_view", {"type": "user", "name": "kamos", "path": "2001"}).json()
 st_ = {a["name"]: (a["rule"], a["effective"]) for a in av["albums"]}
 check("editor: vysledok pre clena skupiny", av["self"]["effective"] == "yes" and st_ == {"Maxim": (None, "path"), "Rodina": (None, "yes")}, av)
-check("editor: odkial pravo", "skupina Kamosi" in (av["self"]["via"] or ""), av["self"])
+check("editor: odkial pravo", (av["self"]["via"] or {}).get("groups") == ["Kamosi"], av["self"])
 av = adm("access_view", {"type": "group", "name": "Kamosi", "path": "2001"}).json()
 st_ = {a["name"]: (a["rule"], a["effective"]) for a in av["albums"]}
 check("editor: pravidla skupiny", av["self"]["rule"] == "allow" and st_["Maxim"] == ("deny", "path"), av)
-aa = {p["label"]: (p["rule"], p["effective"]) for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
-check("pristup z pohladu albumu", aa.get("Skupina Kamosi") == (None, "yes") and aa.get("kamos") == (None, "yes")
-      and aa.get("Bez prihlásenia") == (None, "no") and "spravca" not in aa, aa)
+aa = {(p["type"], p["name"]): (p["rule"], p["effective"]) for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
+check("pristup z pohladu albumu", aa.get(("group", "Kamosi")) == (None, "yes") and aa.get(("user", "kamos")) == (None, "yes")
+      and aa.get(("guest", "")) == (None, "no") and ("user", "spravca") not in aa, aa)
 adm("grant", {"type": "user", "name": "kamos", "path": "2001/Rodina", "deny": True})
-aa = {p["label"]: p for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
+aa = {p["name"]: p for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
 check("vylucenie pouzivatela z albumu", (aa["kamos"]["rule"], aa["kamos"]["effective"]) == ("deny", "no"), aa["kamos"])
 adm("revoke", {"type": "user", "name": "kamos", "path": "2001/Rodina"})
-aa = {p["label"]: p for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
-check("odkial pravo: konkretna skupina", aa["kamos"]["via"] == "povolené cez 2001 (skupina Kamosi)", aa["kamos"])
+aa = {p["name"]: p for p in adm("album_access", {"path": "2001/Rodina"}).json()["principals"]}
+check("odkial pravo: konkretna skupina", aa["kamos"]["via"] == {"deny": False, "path": "2001", "groups": ["Kamosi"]}, aa["kamos"])
 check("zly tvar poziadavky = 400", adm("revoke", {"type": "group", "name": "Kamosi", "path": {"path": "x"}}).status_code == 400)
 check("zrusenie vylucenia", adm("revoke", {"type": "group", "name": "Kamosi", "path": "2001/Maxim"}).status_code == 200)
 r = gcall(km, "album.php", api="SYNO.PhotoStation.Album", method="list", version="1", id=ids.album_id("2001/Maxim"), type="photo")

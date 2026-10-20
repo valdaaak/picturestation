@@ -5,6 +5,22 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
+
+def sk(ctx):
+    """Slovak UI: the selectors below use Slovak labels."""
+    ctx.add_init_script("try { localStorage.setItem('lang', 'sk') } catch (e) {}")
+    return ctx
+
+
+def open_photos(pg):
+    """Open the first album that has photos (year folders may only hold sub-albums)."""
+    for _ in range(5):
+        pg.locator(".album").first.click()
+        pg.wait_for_timeout(1200)
+        if pg.locator(".tile").count():
+            break
+    pg.wait_for_selector(".tile img", timeout=20000)
+
 base, user, pwfile, outdir = sys.argv[1:5]
 pw = [l.split(":", 1)[1].strip() for l in open(pwfile, encoding="utf-8") if l.startswith("heslo:")][0]
 os.makedirs(outdir, exist_ok=True)
@@ -13,7 +29,7 @@ TXT = "test-claude komentar"
 
 with sync_playwright() as p:
     b = p.chromium.launch(channel="msedge", headless=True)
-    pg = b.new_context(viewport={"width": 1300, "height": 900}).new_page()
+    pg = sk(b.new_context(viewport={"width": 1300, "height": 900})).new_page()
     pg.on("pageerror", lambda e: errors.append(str(e)))
     pg.on("dialog", lambda d: d.accept())
     pg.goto(base + "/")
@@ -22,8 +38,7 @@ with sync_playwright() as p:
     pg.fill("#loginDlg input[name=password]", pw)
     pg.click("#loginDlg button[type=submit]")
     pg.wait_for_selector(".album img", timeout=20000)
-    pg.locator(".album").first.click()
-    pg.wait_for_selector(".tile img", timeout=20000)
+    open_photos(pg)
     pg.locator(".tile").first.click()
     pg.wait_for_selector("#vInfoBtn")
     if pg.locator("#vInfo").is_hidden():

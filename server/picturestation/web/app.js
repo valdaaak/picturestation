@@ -16,7 +16,7 @@ class ApiError extends Error {
 }
 
 const S = {
-  user: "", isAdmin: false, title: "Fotky", canDownload: true, infoDownload: true, hideSearch: false,
+  user: "", isAdmin: false, title: t("Photos"), canDownload: true, infoDownload: true, hideSearch: false,
   share: null, shareRoot: null, shareTitle: "", groupId: null, groupTitle: "", discover: null,
   view: null, albumId: null, query: "",
   offset: 0, total: 0, done: false, loading: false, seq: 0,
@@ -27,7 +27,7 @@ const S = {
 async function call(file, api, method, params = {}, version = 1) {
   if (S.share) params = { ...params, share: S.share };
   const body = new URLSearchParams({ api, method, version: String(version), ...params });
-  const r = await fetch(API + file, { method: "POST", body, credentials: "same-origin" });
+  const r = await fetch(API + file, { method: "POST", body, credentials: "same-origin", headers: { "X-Lang": LANG } });
   checkVersion(r);
   if (r.headers.get("x-request-error") === "error_timeout") {
     S.user = "";
@@ -42,11 +42,11 @@ async function call(file, api, method, params = {}, version = 1) {
 // nova verzia galerie na serveri -> ponuknut obnovenie stranky
 function checkVersion(r) {
   const v = r.headers.get("x-picturestation-version");
-  if (!v || !window.DSP_VERSION || v === window.DSP_VERSION || document.getElementById("newVersion")) return;
+  if (!v || !window.PS_VERSION || v === window.PS_VERSION || document.getElementById("newVersion")) return;
   const bar = el("div", "newver");
   bar.id = "newVersion";
-  bar.append(el("span", null, "Galéria bola aktualizovaná. "));
-  const b = el("button", "primary", "Obnoviť stránku");
+  bar.append(el("span", null, t("The gallery has been updated.") + " "));
+  const b = el("button", "primary", t("Reload page"));
   b.type = "button";
   b.onclick = () => location.reload();
   bar.append(b);
@@ -89,14 +89,14 @@ function fmtSize(b) {
   if (!b) return "";
   return b > 1e9 ? (b / 1e9).toFixed(2) + " GB" : b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : Math.round(b / 1e3) + " kB";
 }
-const monthFmt = new Intl.DateTimeFormat("sk", { month: "long", year: "numeric" });
+const monthFmt = new Intl.DateTimeFormat(LOCALE(), { month: "long", year: "numeric" });
 function monthLabel(taken) {
   const d = new Date(taken.slice(0, 7) + "-01T00:00:00");
-  return isNaN(d) ? "Bez dátumu" : monthFmt.format(d);
+  return isNaN(d) ? t("No date") : monthFmt.format(d);
 }
 function fmtDate(taken) {
   const d = new Date(taken.replace(" ", "T"));
-  return isNaN(d) ? taken : d.toLocaleString("sk", { dateStyle: "long", timeStyle: "short" });
+  return isNaN(d) ? taken : d.toLocaleString(LOCALE(), { dateStyle: "long", timeStyle: "short" });
 }
 function store(k, v) {
   try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; }
@@ -135,7 +135,7 @@ $("loginForm").addEventListener("submit", async (ev) => {
     await loadInfo();
     route();
   } catch (e) {
-    showLogin(e.code === 410 ? "Príliš veľa pokusov, skús to o 10 minút." : "Nesprávne meno alebo heslo.");
+    showLogin(e.code === 410 ? t("Too many attempts, try again in 10 minutes.") : t("Wrong user name or password."));
   }
 });
 $("loginCancel").onclick = () => $("loginDlg").close();
@@ -160,7 +160,7 @@ function setTabs() {
 function crumbs() {
   const c = $("crumbs");
   c.replaceChildren();
-  if (S.view === "timeline") { c.append(el("span", "cur", "Časová os")); return; }
+  if (S.view === "timeline") { c.append(el("span", "cur", t("Timeline"))); return; }
   // cesta v Zbierkach: [ [nazov, odkaz|null], ... ]
   const trail = (parts) => {
     parts.forEach(([label, href], i) => {
@@ -169,9 +169,9 @@ function crumbs() {
       else c.append(el("span", "cur", label));
     });
   };
-  const Z = ["Zbierky", "#/x"];
-  const KIND = { smart: ["Chytré albumy", "#/c/smart"], tags: ["Tagy", "#/c/tags"], places: ["Miesta", "#/c/places"] };
-  if (S.view === "people") { trail([Z, ["Ľudia"]]); return; }
+  const Z = [t("Collections"), "#/x"];
+  const KIND = { smart: [t("Smart albums"), "#/c/smart"], tags: [t("Tags"), "#/c/tags"], places: [t("Places"), "#/c/places"] };
+  if (S.view === "people") { trail([Z, [t("People")]]); return; }
   if (S.view === "collection") {
     const p = [Z, KIND[S.collKind] || ["?"]];
     if (S.collKind === "places" && S.collArg) p.push([S.countryName || S.collArg]);
@@ -180,7 +180,7 @@ function crumbs() {
   }
   if (S.view === "group") {
     const id = S.groupId || "", title = S.groupTitle || "…";
-    if (id.startsWith("tag_p")) trail([Z, ["Ľudia", "#/people"], [title]]);
+    if (id.startsWith("tag_p")) trail([Z, [t("People"), "#/people"], [title]]);
     else if (id.startsWith("smart_")) trail([Z, KIND.smart, [title]]);
     else if (id.startsWith("tag_g")) {
       // miesto: "cc|obec" v hex -> krajina z nazvu "Obec, Krajina"
@@ -191,10 +191,10 @@ function crumbs() {
     } else trail([Z, KIND.tags, [title]]);
     return;
   }
-  if (S.view === "search") { c.append(el("span", "cur", `Hľadanie: ${S.query}`)); return; }
+  if (S.view === "search") { c.append(el("span", "cur", t("Search: {q}", { q: S.query }))); return; }
   // v rezime zdielania zacina cesta zdielanym albumom
   const base = S.share ? albumPath(S.shareRoot) : "";
-  const rootLabel = S.share ? S.shareTitle : "Albumy";
+  const rootLabel = S.share ? S.shareTitle : t("Albums");
   const full = albumPath(S.albumId);
   const parts = (base ? full.slice(base.length) : full).split("/").filter(Boolean);
   if (!parts.length) { c.append(el("span", "cur", rootLabel)); return; }
@@ -221,8 +221,8 @@ function route() {
     S.seq++;
     setTabs();
     $("gallery").hidden = true;
-    document.title = "Nastavenia · " + S.title;
-    if (!S.isAdmin) { $("admin").hidden = true; showLogin("Nastavenia sú len pre admina."); return; }
+    document.title = t("Settings") + " · " + S.title;
+    if (!S.isAdmin) { $("admin").hidden = true; showLogin(t("Settings are for administrators only.")); return; }
     Admin.show();
     return;
   }
@@ -232,8 +232,8 @@ function route() {
   setShareMode(null);
   if (h.startsWith("/x")) {
     S.view = "discover"; setTabs(); reset();
-    $("crumbs").replaceChildren(el("span", "cur", "Zbierky"));
-    document.title = "Zbierky · " + S.title;
+    $("crumbs").replaceChildren(el("span", "cur", t("Collections")));
+    document.title = t("Collections") + " · " + S.title;
     $("editAlbumBtn").hidden = $("shareAlbumBtn").hidden = $("accessAlbumBtn").hidden = true;
     renderDiscover(S.seq);
     return;
@@ -242,14 +242,14 @@ function route() {
     const [kind, arg] = h.slice(3).split("/");
     S.view = "collection"; S.collKind = kind; S.collArg = arg ? decodeURIComponent(arg) : "";
     setTabs(); reset(); crumbs();
-    document.title = "Zbierky · " + S.title;
+    document.title = t("Collections") + " · " + S.title;
     $("editAlbumBtn").hidden = $("shareAlbumBtn").hidden = $("accessAlbumBtn").hidden = true;
     renderCollection(kind, S.collArg, S.seq);
     return;
   }
   if (h.startsWith("/people")) {
     S.view = "people"; setTabs(); reset(); crumbs();
-    document.title = "Ľudia · " + S.title;
+    document.title = t("People") + " · " + S.title;
     $("editAlbumBtn").hidden = $("shareAlbumBtn").hidden = $("accessAlbumBtn").hidden = true;
     renderPeople(S.seq);
     return;
@@ -298,8 +298,8 @@ async function routeShare(rest) {
   $("editAlbumBtn").hidden = $("shareAlbumBtn").hidden = $("accessAlbumBtn").hidden = true;
   if (!info) {
     S.view = "share"; setTabs();
-    $("crumbs").replaceChildren(el("span", "cur", "Zdieľaný odkaz"));
-    showEmpty("Odkaz neplatí alebo už vypršal.");
+    $("crumbs").replaceChildren(el("span", "cur", t("Shared link")));
+    showEmpty(t("The link is not valid or has expired."));
     return;
   }
   S.shareTitle = info.title;
@@ -324,7 +324,7 @@ async function routeShare(rest) {
     S.total = items.length; S.done = true;
     renderItems(items);
     openViewer(0);
-  } catch (e) { showEmpty("Súbor sa nepodarilo načítať."); }
+  } catch (e) { showEmpty(t("The file could not be loaded.")); }
 }
 
 async function loadAlbumHeader(seq) {
@@ -347,7 +347,7 @@ $("unlockForm").addEventListener("submit", async (e) => {
     e.target.reset();
     route();
   } catch (err) {
-    $("unlockErr").textContent = err.code === 410 ? "Príliš veľa pokusov, skús to o 10 minút." : "Nesprávne heslo.";
+    $("unlockErr").textContent = err.code === 410 ? t("Too many attempts, try again in 10 minutes.") : t("Wrong password.");
     $("unlockErr").hidden = false;
   }
 });
@@ -393,7 +393,7 @@ function groupCard(it, sub) {
     img.src = thumbUrl(it, "small");
     cov.append(img);
   } else cov.classList.add("none");
-  a.append(cov, el("div", "name", it.name), el("div", "sub", sub || `${it.info.count} ${it.info.count === 1 ? "položka" : it.info.count < 5 ? "položky" : "položiek"}`));
+  a.append(cov, el("div", "name", it.name), el("div", "sub", sub || tn(it.info.count, "{n} item", "{n} items")));
   return a;
 }
 
@@ -418,11 +418,11 @@ async function renderPeople(seq) {
   if (seq !== S.seq) return;
   $("spinner").hidden = true;
   box.replaceChildren();
-  if (!people.length) { showEmpty("Žiadni ľudia na zobrazenie."); return; }
+  if (!people.length) { showEmpty(t("No people to show.")); return; }
   const g = el("div", "albums people");
   for (const p of people) g.append(groupCard(p));
   box.append(g);
-  $("count").textContent = `${people.length} ${people.length < 5 ? "osoby" : "osôb"}`;
+  $("count").textContent = tn(people.length, "{n} person", "{n} people");
 }
 
 async function renderDiscover(seq) {
@@ -439,19 +439,19 @@ async function renderDiscover(seq) {
   const byCount = (a, b) => (b.info.count || 0) - (a.info.count || 0);
   const g = el("div", "albums");
   // Zbierky: dlazdice Ludia / Tagy / Miesta (obsah po kliknuti), chytre albumy priamo pod nimi
-  if (people.length) g.append(collageTile("Ľudia", countLabel(people.length, ["osoba", "osoby", "osôb"]), "#/people", people));
-  g.append(collageTile("Tagy", countLabel(tags.length, ["tag", "tagy", "tagov"]), "#/c/tags", [...tags].sort(byCount)));
+  if (people.length) g.append(collageTile(t("People"), tn(people.length, "{n} person", "{n} people"), "#/people", people));
+  g.append(collageTile(t("Tags"), tn(tags.length, "{n} tag", "{n} tags"), "#/c/tags", [...tags].sort(byCount)));
   if (places.length) {
     const countries = new Set(places.map((p) => p.info.cc));
-    g.append(collageTile("Miesta", countLabel(countries.size, ["krajina", "krajiny", "krajín"]), "#/c/places",
+    g.append(collageTile(t("Places"), tn(countries.size, "{n} country", "{n} countries"), "#/c/places",
       [...places].sort(byCount)));
   }
 
   // chytre albumy priamo v Zbierkach (hore), dlazdice Ludia/Tagy/Miesta na konci
   const hd = el("div", "disc-h");
-  hd.append(el("h3", null, "Chytré albumy"));
+  hd.append(el("h3", null, t("Smart albums")));
   if (S.isAdmin) {
-    const nb = el("button", "link add", "+ Nový chytrý album"); nb.type = "button";
+    const nb = el("button", "link add", "+ " + t("New smart album")); nb.type = "button";
     nb.onclick = () => Admin.editSmart(null, S.discover, () => { S.collections = null; route(); });
     hd.append(nb);
   }
@@ -460,21 +460,17 @@ async function renderDiscover(seq) {
   for (const s of smart) {
     const card = groupCard(s);
     if (S.isAdmin) {
-      const e = el("button", "link edit", "Upraviť"); e.type = "button";
+      const e = el("button", "link edit", t("Edit")); e.type = "button";
       e.onclick = (ev) => { ev.preventDefault(); Admin.editSmart(s, S.discover, () => { S.collections = null; route(); }); };
       card.append(e);
     }
     gs.append(card);
   }
   if (!smart.length) gs.append(el("p", "muted", S.isAdmin
-    ? "Chytrý album zobrazí fotky podľa tagov, miesta, obdobia alebo typu." : "Zatiaľ žiadne."));
+    ? t("A smart album shows photos by tags, place, period or type.") : t("None yet.")));
   box.append(gs);
   g.classList.add("coll-tiles");
   box.append(g);
-}
-
-function countLabel(n, forms) {
-  return `${n} ${n === 1 ? forms[0] : n >= 2 && n <= 4 ? forms[1] : forms[2]}`;
 }
 
 // dlazdica s kolazou styroch titulnych fotiek (Ludia, Tagy, Miesta, Chytre albumy, krajina)
@@ -531,7 +527,7 @@ async function renderCollection(kind, arg, seq) {
   let n = 0;
   if (kind === "smart") {
     if (S.isAdmin) {
-      const nb = el("button", "link add", "+ Nový chytrý album"); nb.type = "button";
+      const nb = el("button", "link add", "+ " + t("New smart album")); nb.type = "button";
       nb.onclick = () => Admin.editSmart(null, S.discover, () => { S.collections = null; route(); });
       box.append(el("div", "disc-h"));
       box.lastChild.append(nb);
@@ -539,7 +535,7 @@ async function renderCollection(kind, arg, seq) {
     for (const s of c.smart) {
       const card = groupCard(s);
       if (S.isAdmin) {
-        const e = el("button", "link edit", "Upraviť"); e.type = "button";
+        const e = el("button", "link edit", t("Edit")); e.type = "button";
         e.onclick = (ev) => { ev.preventDefault(); Admin.editSmart(s, S.discover, () => { S.collections = null; route(); }); };
         card.append(e);
       }
@@ -547,11 +543,11 @@ async function renderCollection(kind, arg, seq) {
     }
     n = c.smart.length;
     if (!n) box.append(el("p", "muted", S.isAdmin
-      ? "Chytrý album zobrazí fotky podľa tagov, miesta, obdobia alebo typu." : "Zatiaľ žiadne."));
+      ? t("A smart album shows photos by tags, place, period or type.") : t("None yet.")));
   } else if (kind === "tags") {
-    for (const t of [...c.tags].sort((a, b) => a.name.localeCompare(b.name, "sk"))) g.append(groupCard(t));
+    for (const tg of [...c.tags].sort((a, b) => a.name.localeCompare(b.name, LOCALE()))) g.append(groupCard(tg));
     n = c.tags.length;
-    if (!n) box.append(el("p", "muted", S.isAdmin ? "Tagy pridáš pri fotke v paneli Info." : "Zatiaľ žiadne."));
+    if (!n) box.append(el("p", "muted", S.isAdmin ? t("Add tags to a photo in the Info panel.") : t("None yet.")));
   } else if (kind === "places" && !arg) {
     const groups = new Map();
     for (const p of c.places) {
@@ -561,13 +557,13 @@ async function renderCollection(kind, arg, seq) {
     }
     const list = [...groups.entries()].sort((a, b) => b[1].count - a[1].count);
     for (const [cc, gr] of list) {
-      g.append(collageTile(gr.name, countLabel(gr.items.length, ["miesto", "miesta", "miest"]) + ` · ${gr.count} fotiek`,
+      g.append(collageTile(gr.name, tn(gr.items.length, "{n} place", "{n} places") + " · " + tn(gr.count, "{n} photo", "{n} photos"),
         "#/c/places/" + encodeURIComponent(cc), gr.items.sort(byCount)));
     }
     n = list.length;
     box.append(g);
-    box.append(el("p", "muted attr", "Názvy miest: GeoNames (CC BY 4.0)"));
-    $("count").textContent = countLabel(n, ["krajina", "krajiny", "krajín"]);
+    box.append(el("p", "muted attr", t("Place names: GeoNames (CC BY 4.0)")));
+    $("count").textContent = tn(n, "{n} country", "{n} countries");
     return;
   } else if (kind === "places") {
     const items = c.places.filter((p) => p.info.cc === arg).sort(byCount);
@@ -577,7 +573,7 @@ async function renderCollection(kind, arg, seq) {
     crumbs();
   }
   box.append(g);
-  $("count").textContent = n ? `${n} ${n === 1 ? "položka" : n < 5 ? "položky" : "položiek"}` : "";
+  $("count").textContent = n ? tn(n, "{n} item", "{n} items") : "";
 }
 
 async function loadMore() {
@@ -612,16 +608,16 @@ async function loadMore() {
     S.offset += data.items.length;
     S.done = data.items.length === 0 || S.offset >= S.total;
     renderItems(data.items);
-    $("count").textContent = S.total ? `${S.total} ${S.total === 1 ? "položka" : S.total < 5 ? "položky" : "položiek"}` : "";
+    $("count").textContent = S.total ? tn(S.total, "{n} item", "{n} items") : "";
     if (!S.total) showEmpty();
   } catch (e) {
     if (seq !== S.seq) return;
     S.done = true;
-    if (e.code === 106) showLogin("Prihlásenie vypršalo.");
+    if (e.code === 106) showLogin(t("Your session has expired."));
     else if (e.code === 416) { $("unlockForm").hidden = false; $("unlockForm").querySelector("input").focus(); }
-    else if (e.code === 410) showEmpty("Príliš veľa nesprávnych hesiel, skús to o 10 minút.");
-    else if (e.code === 417) showEmpty("Do tohto albumu nemáš prístup.");
-    else showEmpty("Nepodarilo sa načítať obsah.");
+    else if (e.code === 410) showEmpty(t("Too many wrong passwords, try again in 10 minutes."));
+    else if (e.code === 417) showEmpty(t("You do not have access to this album."));
+    else showEmpty(t("The content could not be loaded."));
   } finally {
     if (seq === S.seq) {
       S.loading = false;
@@ -637,11 +633,11 @@ function showEmpty(msg) {
   e.hidden = false;
   if (msg) e.textContent = msg;
   else if (!S.user && S.view === "album" && !S.albumId) {
-    e.replaceChildren(el("span", null, "Nič na zobrazenie. "));
-    const b = el("button", "link", "Prihlás sa");
+    e.replaceChildren(el("span", null, t("Nothing to show.") + " "));
+    const b = el("button", "link", t("Sign in"));
     b.onclick = () => showLogin();
     e.append(b);
-  } else e.textContent = S.view === "search" ? "Nič sa nenašlo." : "Album je prázdny.";
+  } else e.textContent = S.view === "search" ? t("Nothing found.") : t("The album is empty.");
 }
 
 function renderItems(items) {
@@ -658,8 +654,8 @@ function renderItems(items) {
         cov.append(img);
       } else cov.classList.add(it.info.locked ? "locked" : "none");
       a.append(cov, el("div", "name", it.info.title || it.info.name));
-      if (it.info.type === "password") a.querySelector(".name").append(el("span", "tag", "heslo"));
-      else if (it.info.type === "public" && S.isAdmin) a.querySelector(".name").append(el("span", "tag acc", "verejný"));
+      if (it.info.type === "password") a.querySelector(".name").append(el("span", "tag", t("password")));
+      else if (it.info.type === "public" && S.isAdmin) a.querySelector(".name").append(el("span", "tag acc", t("public")));
       if (S.view === "search") a.append(el("div", "sub", it.info.sharepath));
       albums.append(a);
       continue;
@@ -673,18 +669,18 @@ function renderItems(items) {
     }
     const idx = S.media.length;
     S.media.push(it);
-    const t = el("button", "tile");
-    t.type = "button";
-    t.title = it.info.name;
+    const tile = el("button", "tile");
+    tile.type = "button";
+    tile.title = it.info.name;
     const img = el("img");
     img.loading = "lazy"; img.decoding = "async"; img.alt = it.info.name;
     img.onload = () => img.classList.add("ok");
     img.onerror = () => img.classList.add("ok");
     if (it.thumbnail_status !== "default") img.src = thumbUrl(it, "small");
-    t.append(img);
-    if (it.type === "video") t.append(el("span", "badge", fmtDuration(it.info.duration)));
-    t.onclick = () => openViewer(idx);
-    grid.append(t);
+    tile.append(img);
+    if (it.type === "video") tile.append(el("span", "badge", fmtDuration(it.info.duration)));
+    tile.onclick = () => openViewer(idx);
+    grid.append(tile);
   }
 }
 
@@ -761,8 +757,8 @@ $("vVideo").addEventListener("error", () => {
   const it = S.media[vIdx];
   if (!it || it.type !== "video" || !$("vVideo").getAttribute("src")) return;
   const m = $("vMsg");
-  m.replaceChildren(el("span", null, "Toto video prehliadač neprehrá. "));
-  const a = el("a", null, "Stiahnuť originál");
+  m.replaceChildren(el("span", null, t("The browser cannot play this video.") + " "));
+  const a = el("a", null, t("Download original"));
   a.href = downloadUrl(it, false);
   m.append(a);
   m.hidden = false;
@@ -773,16 +769,16 @@ function renderInfo(it) {
   const ex = (it.additional && it.additional.photo_exif) || {};
   const vc = (it.additional && it.additional.video_codec) || {};
   const rows = [
-    ["Súbor", it.info.name],
-    ["Dátum", it.info.takendate ? fmtDate(it.info.takendate) : ""],
-    ["Rozmer", it.info.resolutionx ? `${it.info.resolutionx} × ${it.info.resolutiony}` : ""],
-    ["Veľkosť", fmtSize(it.info.size)],
-    ["Dĺžka", it.type === "video" ? fmtDuration(it.info.duration) : ""],
-    ["Fotoaparát", [ex.camera, ex.camera_model].filter(Boolean).join(" ")],
-    ["Objektív", ex.lens], ["Expozícia", ex.exposure], ["Clona", ex.aperture],
-    ["ISO", ex.iso || ""], ["Ohnisko", ex.focal_length],
-    ["Kodek", it.type === "video" ? [vc.vcodec, vc.acodec].filter(Boolean).join(" / ") : ""],
-    ["Album", (it.additional && it.additional.file_location || "").split("/").slice(0, -1).join("/")],
+    [t("File"), it.info.name],
+    [t("Date"), it.info.takendate ? fmtDate(it.info.takendate) : ""],
+    [t("Dimensions"), it.info.resolutionx ? `${it.info.resolutionx} × ${it.info.resolutiony}` : ""],
+    [t("Size"), fmtSize(it.info.size)],
+    [t("Duration"), it.type === "video" ? fmtDuration(it.info.duration) : ""],
+    [t("Camera"), [ex.camera, ex.camera_model].filter(Boolean).join(" ")],
+    [t("Lens"), ex.lens], [t("Exposure"), ex.exposure], [t("Aperture"), ex.aperture],
+    ["ISO", ex.iso || ""], [t("Focal length"), ex.focal_length],
+    [t("Codec"), it.type === "video" ? [vc.vcodec, vc.acodec].filter(Boolean).join(" / ") : ""],
+    [t("Album"), (it.additional && it.additional.file_location || "").split("/").slice(0, -1).join("/")],
   ];
   const dl = el("dl");
   for (const [k, v] of rows) {
@@ -794,14 +790,14 @@ function renderInfo(it) {
     const a = el("a", null, `${(+gps.lat).toFixed(5)}, ${(+gps.lng).toFixed(5)}`);
     a.href = `https://www.openstreetmap.org/?mlat=${gps.lat}&mlon=${gps.lng}#map=16/${gps.lat}/${gps.lng}`;
     a.target = "_blank"; a.rel = "noopener";
-    dl.append(el("dt", null, "Poloha"), el("dd").appendChild(a).parentNode);
+    dl.append(el("dt", null, t("Location")), el("dd").appendChild(a).parentNode);
   }
   if (it.info.place && !S.share) {
     const a = el("a", null, it.info.place);
     a.href = "#/g/" + encodeURIComponent(it.info.place_id);
     a.onclick = () => closeViewer(true);
     const dd = el("dd"); dd.append(a);
-    dl.append(el("dt", null, "Miesto"), dd);
+    dl.append(el("dt", null, t("Place")), dd);
   }
   const tbox = el("div", "item-tags");
   const cbox = el("div", "comments");
@@ -822,7 +818,7 @@ async function loadItemTags(it, box) {
   if (S.media[vIdx] !== it) return;
   box.replaceChildren();
   if (people.length) {
-    box.append(el("h4", null, "Na fotke"));
+    box.append(el("h4", null, t("In this photo")));
     const pc = el("div", "chips");
     for (const p of people) {
       const c = el("span", "chip person");
@@ -835,17 +831,17 @@ async function loadItemTags(it, box) {
     box.append(pc);
   }
   if (!tags.length && !S.isAdmin) return;
-  box.append(el("h4", null, "Tagy"));
+  box.append(el("h4", null, t("Tags")));
   const chips = el("div", "chips");
-  for (const t of tags) {
+  for (const tg of tags) {
     const c = el("span", "chip");
-    const a = el("a", null, t.name);
-    a.href = S.share ? "#" : "#/g/" + encodeURIComponent(t.id);
+    const a = el("a", null, tg.name);
+    a.href = S.share ? "#" : "#/g/" + encodeURIComponent(tg.id);
     a.onclick = () => closeViewer(true);
     c.append(a);
     if (S.isAdmin) {
-      const x = el("button", "x", "×"); x.type = "button"; x.title = "Odobrať tag";
-      x.onclick = async () => { await adminPost("tag_remove", { path: it.additional.file_location, tag: t.id }); loadItemTags(it, box); };
+      const x = el("button", "x", "×"); x.type = "button"; x.title = t("Remove tag");
+      x.onclick = async () => { await adminPost("tag_remove", { path: it.additional.file_location, tag: tg.id }); loadItemTags(it, box); };
       c.append(x);
     }
     chips.append(c);
@@ -856,7 +852,7 @@ async function loadItemTags(it, box) {
     try { tagNames = (await (await fetch("/api/admin/tag_names", { credentials: "same-origin" })).json()).tags; } catch (e) { tagNames = []; }
   }
   const f = el("form", "tag-form");
-  const inp = el("input"); inp.placeholder = "Pridať tag"; inp.setAttribute("list", "tagList"); inp.maxLength = 64;
+  const inp = el("input"); inp.placeholder = t("Add tag"); inp.setAttribute("list", "tagList"); inp.maxLength = 64;
   let dl = $("tagList");
   if (!dl) { dl = el("datalist"); dl.id = "tagList"; document.body.append(dl); }
   dl.replaceChildren(...tagNames.map((n) => { const o = el("option"); o.value = n; return o; }));
@@ -875,8 +871,8 @@ async function loadItemTags(it, box) {
 
 async function adminPost(op, body) {
   const r = await fetch("/api/admin/" + op, { method: "POST", credentials: "same-origin",
-    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) { alert(((await r.json().catch(() => ({}))).error) || "Chyba"); return false; }
+    headers: { "Content-Type": "application/json", "X-Lang": LANG }, body: JSON.stringify(body) });
+  if (!r.ok) { alert(((await r.json().catch(() => ({}))).error) || t("Error")); return false; }
   return true;
 }
 
@@ -887,18 +883,18 @@ async function loadComments(it, box) {
   catch (e) { return; }
   if (S.media[vIdx] !== it) return;
   $("vInfoBtn").textContent = list.length ? `Info · ${list.length}` : "Info";
-  box.replaceChildren(el("h4", null, list.length ? `Komentáre (${list.length})` : "Komentáre"));
+  box.replaceChildren(el("h4", null, list.length ? t("Comments ({n})", { n: list.length }) : t("Comments")));
   for (const c of list) {
     const row = el("div", "cmt");
     const head = el("div", "cmt-h");
     head.append(el("strong", null, c.name), el("span", "muted", " " + fmtDate(c.date)));
     if (S.isAdmin) {
       const x = el("button", "x", "×");
-      x.type = "button"; x.title = "Zmazať komentár";
+      x.type = "button"; x.title = t("Delete comment");
       x.onclick = async () => {
-        if (!confirm("Zmazať komentár?")) return;
+        if (!confirm(t("Delete the comment?"))) return;
         const r = await fetch("/api/admin/comment_delete", { method: "POST", credentials: "same-origin",
-          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: c.id }) });
+          headers: { "Content-Type": "application/json", "X-Lang": LANG }, body: JSON.stringify({ id: c.id }) });
         if (r.ok) loadComments(it, box);
       };
       head.append(x);
@@ -907,16 +903,16 @@ async function loadComments(it, box) {
     box.append(row);
   }
   if (!S.canComment) {
-    if (!list.length) box.append(el("p", "muted", "Zatiaľ bez komentárov."));
+    if (!list.length) box.append(el("p", "muted", t("No comments yet.")));
     return;
   }
   const f = el("form", "cmt-form");
   if (!S.user) {
-    const n = el("input"); n.name = "name"; n.placeholder = "Tvoje meno"; n.required = true; n.maxLength = 64;
+    const n = el("input"); n.name = "name"; n.placeholder = t("Your name"); n.required = true; n.maxLength = 64;
     f.append(n);
   }
-  const ta = el("textarea"); ta.name = "comment"; ta.rows = 2; ta.placeholder = "Napíš komentár"; ta.required = true; ta.maxLength = 2000;
-  const b = el("button", "primary", "Pridať"); b.type = "submit";
+  const ta = el("textarea"); ta.name = "comment"; ta.rows = 2; ta.placeholder = t("Write a comment"); ta.required = true; ta.maxLength = 2000;
+  const b = el("button", "primary", t("Add")); b.type = "submit";
   f.append(ta, b);
   f.onsubmit = async (e) => {
     e.preventDefault();
@@ -926,7 +922,7 @@ async function loadComments(it, box) {
         { id: it.id, name: fd.get("name") || "", email: "", comment: fd.get("comment") });
       loadComments(it, box);
     } catch (err) {
-      alert(err.code === 493 ? "Príliš veľa komentárov, skús to neskôr." : "Komentár sa nepodarilo uložiť.");
+      alert(err.code === 493 ? t("Too many comments, try again later.") : t("The comment could not be saved."));
     }
   };
   box.append(f);
@@ -979,7 +975,7 @@ $("vImg").addEventListener("click", (e) => {
 async function loadInfo() {
   try {
     const info = await call("info.php", "SYNO.PhotoStation.Info", "getinfo");
-    S.title = info.title || "Fotky";
+    S.title = info.title || t("Photos");
     S.infoDownload = S.canDownload = info.allow_download_orig !== false;
     S.hideSearch = !!info.hide_search;
     $("brand").textContent = S.title;

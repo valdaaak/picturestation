@@ -12,8 +12,12 @@ errors = []
 
 with sync_playwright() as p:
     b = p.chromium.launch(channel="msedge", headless=True)
-    for name, vp in (("desktop", {"width": 1400, "height": 900}), ("mobil", {"width": 390, "height": 844})):
+    runs = [(lang, dev, vp) for lang in ("en", "sk")
+            for dev, vp in (("desktop", {"width": 1400, "height": 900}), ("mobil", {"width": 390, "height": 844}))]
+    for lang, dev, vp in runs:
+        name = f"{lang}-{dev}"
         ctx = b.new_context(viewport=vp, device_scale_factor=1)
+        ctx.add_init_script(f"try {{ localStorage.setItem('lang', '{lang}') }} catch (e) {{}}")
         pg = ctx.new_page()
         pg.on("pageerror", lambda e: errors.append(f"{name} JS: {e}"))
         pg.on("console", lambda m: errors.append(f"{name} console {m.type}: {m.text}") if m.type == "error" else None)
@@ -27,9 +31,15 @@ with sync_playwright() as p:
         pg.wait_for_selector(".album img", timeout=30000)
         pg.wait_for_timeout(2500)
         pg.screenshot(path=f"{outdir}/{name}-1-albumy.png")
-        print(name, "albumov:", pg.locator(".album").count(), "| user:", pg.inner_text("#userName"))
+        print(name, "albumov:", pg.locator(".album").count(), "| user:", pg.inner_text("#userName"),
+              "| karty:", " / ".join(pg.locator(".tabs a:visible").all_inner_texts()))
         # album s fotkami
-        pg.locator(".album").nth(0).click()
+        for _ in range(5):  # do albumu s fotkami (roky maju len podalbumy)
+            pg.locator(".album").nth(0).click()
+            pg.wait_for_selector(".tile img, .album img", timeout=30000)
+            pg.wait_for_timeout(700)
+            if pg.locator(".tile").count():
+                break
         pg.wait_for_selector(".tile img", timeout=30000)
         pg.wait_for_timeout(2500)
         pg.screenshot(path=f"{outdir}/{name}-2-album.png")
@@ -37,7 +47,7 @@ with sync_playwright() as p:
               "| pocet:", pg.inner_text("#count"))
         pg.locator(".tile").nth(0).click()
         pg.wait_for_function("document.getElementById('vImg').complete && document.getElementById('vImg').naturalWidth > 0", timeout=30000)
-        if name == "desktop":
+        if dev == "desktop":
             pg.keyboard.press("i")
         pg.wait_for_timeout(800)
         pg.screenshot(path=f"{outdir}/{name}-3-fotka.png")

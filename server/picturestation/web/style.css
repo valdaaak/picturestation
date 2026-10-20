@@ -42,6 +42,7 @@ button, select, input { font: inherit; color: inherit; }
 .search { flex: 1; max-width: 360px; margin-left: auto; }
 .search input { width: 100%; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg2); }
 .user { display: flex; gap: 10px; align-items: center; white-space: nowrap; color: var(--muted); }
+.user select.lang { padding: 3px 4px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg2); color: var(--muted); font-size: 12px; }
 .link { background: none; border: 0; padding: 4px 2px; cursor: pointer; color: var(--fg); }
 .link:hover { color: var(--accent); }
 

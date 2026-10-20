@@ -1,55 +1,60 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<html lang="sk">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#111214">
-<title>Fotky</title>
+<title>Photos</title>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e8a33d'/%3E%3Ccircle cx='16' cy='17' r='7' fill='none' stroke='%23111' stroke-width='3'/%3E%3Crect x='11' y='6' width='10' height='4' rx='1.5' fill='%23111'/%3E%3C/svg%3E">
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="#/" id="brand">Fotky</a>
+  <a class="brand" href="#/" id="brand" data-t="Photos">Photos</a>
   <nav class="tabs">
-    <a href="#/" data-tab="albums">Albumy</a>
-    <a href="#/t" data-tab="timeline">Časová os</a>
-    <a href="#/x" data-tab="discover">Zbierky</a>
-    <a href="#/admin" data-tab="admin" id="adminTab" hidden>Nastavenia</a>
+    <a href="#/" data-tab="albums" data-t="Albums">Albums</a>
+    <a href="#/t" data-tab="timeline" data-t="Timeline">Timeline</a>
+    <a href="#/x" data-tab="discover" data-t="Collections">Collections</a>
+    <a href="#/admin" data-tab="admin" id="adminTab" data-t="Settings" hidden>Settings</a>
   </nav>
   <form class="search" id="searchForm" role="search">
-    <input type="search" id="searchInput" placeholder="Hľadať album alebo súbor" aria-label="Hľadať">
+    <input type="search" id="searchInput" placeholder="Search album or file" data-t-placeholder="Search album or file"
+      aria-label="Search" data-t-aria="Search">
   </form>
   <div class="user">
     <span id="userName"></span>
-    <button type="button" id="loginBtn" class="link">Prihlásiť</button>
-    <button type="button" id="logoutBtn" class="link" hidden>Odhlásiť</button>
+    <button type="button" id="loginBtn" class="link" data-t="Sign in">Sign in</button>
+    <button type="button" id="logoutBtn" class="link" data-t="Sign out" hidden>Sign out</button>
+    <select id="langSel" class="lang" aria-label="Language" data-t-aria="Language">
+      <option value="en">EN</option>
+      <option value="sk">SK</option>
+    </select>
   </div>
 </header>
 
 <section id="admin" class="admin" hidden></section>
 <main id="gallery">
   <div class="bar">
-    <nav class="crumbs" id="crumbs" aria-label="Cesta"></nav>
+    <nav class="crumbs" id="crumbs" aria-label="Path" data-t-aria="Path"></nav>
     <div class="tools">
-      <button type="button" class="link" id="accessAlbumBtn" hidden>Prístup</button>
-      <button type="button" class="link" id="shareAlbumBtn" hidden>Zdieľať</button>
-      <button type="button" class="link" id="editAlbumBtn" hidden>Upraviť album</button>
+      <button type="button" class="link" id="accessAlbumBtn" data-t="Access" hidden>Access</button>
+      <button type="button" class="link" id="shareAlbumBtn" data-t="Share" hidden>Share</button>
+      <button type="button" class="link" id="editAlbumBtn" data-t="Edit album" hidden>Edit album</button>
       <span class="count" id="count"></span>
-      <select id="sortSel" aria-label="Zoradenie">
-        <option value="takendate|asc">Dátum, najstaršie</option>
-        <option value="takendate|desc">Dátum, najnovšie</option>
-        <option value="filename|asc">Názov A–Z</option>
+      <select id="sortSel" aria-label="Sort order" data-t-aria="Sort order">
+        <option value="takendate|asc" data-t="Date, oldest first">Date, oldest first</option>
+        <option value="takendate|desc" data-t="Date, newest first">Date, newest first</option>
+        <option value="filename|asc" data-t="Name A–Z">Name A–Z</option>
       </select>
     </div>
   </div>
   <p id="albumDesc" class="album-desc" hidden></p>
   <form id="unlockForm" class="unlock" hidden>
-    <p>Tento album je chránený heslom.</p>
-    <input type="password" name="password" placeholder="Heslo albumu" autocomplete="off" required>
-    <button type="submit" class="primary">Otvoriť</button>
+    <p data-t="This album is protected by a password.">This album is protected by a password.</p>
+    <input type="password" name="password" placeholder="Album password" data-t-placeholder="Album password" autocomplete="off" required>
+    <button type="submit" class="primary" data-t="Open">Open</button>
     <p class="err" id="unlockErr" hidden></p>
   </form>
   <section id="discover" class="discover" hidden></section>
@@ -64,36 +69,37 @@
   <div class="v-top">
     <span class="v-title" id="vTitle"></span>
     <span class="v-actions">
-      <button type="button" id="vShareBtn" title="Zdieľať odkazom" hidden>Zdieľať</button>
-      <button type="button" id="vCoverBtn" title="Nastaviť ako titulnú fotku albumu" hidden>Titulná</button>
-      <button type="button" id="vInfoBtn" title="Informácie (i)">Info</button>
-      <a id="vDownload" href="#" download>Originál</a>
-      <button type="button" id="vClose" title="Zavrieť (Esc)">Zavrieť</button>
+      <button type="button" id="vShareBtn" title="Share by link" data-t-title="Share by link" data-t="Share" hidden>Share</button>
+      <button type="button" id="vCoverBtn" title="Set as album cover" data-t-title="Set as album cover" data-t="Cover" hidden>Cover</button>
+      <button type="button" id="vInfoBtn" title="Information (i)" data-t-title="Information (i)">Info</button>
+      <a id="vDownload" href="#" download data-t="Original">Original</a>
+      <button type="button" id="vClose" title="Close (Esc)" data-t-title="Close (Esc)" data-t="Close">Close</button>
     </span>
   </div>
   <div class="v-stage" id="vStage">
-    <button type="button" class="v-nav prev" id="vPrev" aria-label="Predchádzajúca">‹</button>
+    <button type="button" class="v-nav prev" id="vPrev" aria-label="Previous" data-t-aria="Previous">‹</button>
     <img id="vImg" alt="">
     <video id="vVideo" controls playsinline preload="metadata"></video>
     <div id="vMsg" class="v-msg" hidden></div>
-    <button type="button" class="v-nav next" id="vNext" aria-label="Ďalšia">›</button>
+    <button type="button" class="v-nav next" id="vNext" aria-label="Next" data-t-aria="Next">›</button>
   </div>
   <aside class="v-info" id="vInfo" hidden></aside>
 </div>
 
 <dialog id="loginDlg">
   <form method="dialog" id="loginForm">
-    <h2 id="loginTitle">Prihlásenie</h2>
-    <label>Meno <input name="username" autocomplete="username" required></label>
-    <label>Heslo <input name="password" type="password" autocomplete="current-password" required></label>
+    <h2 id="loginTitle" data-t="Sign-in">Sign-in</h2>
+    <label><span data-t="Name">Name</span> <input name="username" autocomplete="username" required></label>
+    <label><span data-t="Password">Password</span> <input name="password" type="password" autocomplete="current-password" required></label>
     <p class="err" id="loginErr" hidden></p>
     <div class="row">
-      <button type="button" id="loginCancel" class="link">Zrušiť</button>
-      <button type="submit" class="primary">Prihlásiť</button>
+      <button type="button" id="loginCancel" class="link" data-t="Cancel">Cancel</button>
+      <button type="submit" class="primary" data-t="Sign in">Sign in</button>
     </div>
   </form>
 </dialog>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 <script src="admin.js"></script>
 </body>

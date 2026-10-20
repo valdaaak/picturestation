@@ -5,6 +5,12 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
+
+def sk(ctx):
+    """Slovak UI: the selectors below use Slovak labels."""
+    ctx.add_init_script("try { localStorage.setItem('lang', 'sk') } catch (e) {}")
+    return ctx
+
 base, user, pwfile, outdir = sys.argv[1:5]
 pw = [l.split(":", 1)[1].strip() for l in open(pwfile, encoding="utf-8") if l.startswith("heslo:")][0]
 os.makedirs(outdir, exist_ok=True)
@@ -12,7 +18,7 @@ errors = []
 
 with sync_playwright() as p:
     b = p.chromium.launch(channel="msedge", headless=True)
-    adm = b.new_context(viewport={"width": 1300, "height": 900}).new_page()
+    adm = sk(b.new_context(viewport={"width": 1300, "height": 900})).new_page()
     adm.on("pageerror", lambda e: errors.append(f"admin JS: {e}"))
     adm.on("dialog", lambda d: d.accept())
     adm.goto(base + "/")
@@ -34,7 +40,7 @@ with sync_playwright() as p:
     adm.click(".adm-dlg button:has-text('Zavrieť')")
 
     for name, vp in (("desktop", {"width": 1300, "height": 900}), ("mobil", {"width": 390, "height": 844})):
-        anon = b.new_context(viewport=vp).new_page()
+        anon = sk(b.new_context(viewport=vp)).new_page()
         anon.on("pageerror", lambda e: errors.append(f"anon JS: {e}"))
         anon.goto(url)
         anon.wait_for_selector(".tile img, .album img", timeout=20000)
@@ -53,7 +59,7 @@ with sync_playwright() as p:
     adm.locator(".card", has_text="test-claude").locator("button:has-text('Zrušiť')").click()
     adm.wait_for_timeout(1500)
     print("po zruseni ostal:", adm.locator(".card", has_text="test-claude").count())
-    anon = b.new_context().new_page()
+    anon = sk(b.new_context()).new_page()
     anon.goto(url)
     anon.wait_for_selector("#empty:not([hidden])", timeout=10000)
     print("zruseny odkaz:", anon.inner_text("#empty"))

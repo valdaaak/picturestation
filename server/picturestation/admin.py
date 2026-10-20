@@ -13,7 +13,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from . import catalog, config, ids, media, store
+from . import catalog, config, i18n, ids, media, store
 
 
 class AdminError(Exception):
@@ -26,10 +26,10 @@ def _admin_user(req: Request):
     sid = req.cookies.get(config.SESSION_COOKIE)
     user = store.session_user(sid)
     if not user:
-        raise AdminError("Nie si prihlásený.", 401)
+        raise AdminError("Not logged in.", 401)
     u = store.get_user(user)
     if not u or not u["admin"]:
-        raise AdminError("Na nastavenia treba admina.", 403)
+        raise AdminError("Settings require an administrator.", 403)
     return u["username"]
 
 
@@ -44,13 +44,13 @@ def _principal(p: dict) -> str:
         return store.GUEST
     if t == "group":
         if not store.db().execute("SELECT 1 FROM groups WHERE name=?", (name,)).fetchone():
-            raise AdminError("Skupina neexistuje.")
+            raise AdminError("Group does not exist.")
         return store.GROUP_PREFIX + name
     if t == "user":
         if not store.get_user(name):
-            raise AdminError("Používateľ neexistuje.")
+            raise AdminError("User does not exist.")
         return name
-    raise AdminError("Neznámy typ.")
+    raise AdminError("Unknown type.")
 
 
 def _grants(principal: str):
@@ -61,7 +61,7 @@ def _grants(principal: str):
 def _password(pw):
     pw = pw or ""
     if len(pw) < 8:
-        raise AdminError("Heslo musí mať aspoň 8 znakov.")
+        raise AdminError("Password must have at least 8 characters.")
     return store.hash_pw(pw)
 
 
@@ -85,15 +85,16 @@ def state(_me, _b):
         u["groups"] = sorted(names.get(g, g) for g in u["groups"])
     return {"users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
             "settings": {"title": store.get_setting("title", config.TITLE), **store.flags(),
-                         "root_album_order": store.get_setting("root_album_order", "asc")}}
+                         "root_album_order": store.get_setting("root_album_order", "asc"),
+                         "language": store.get_setting("language", "auto") or "auto"}}
 
 
 def user_create(_me, b):
     name = (b.get("username") or "").strip()
     if not store.valid_name(name):
-        raise AdminError("Neplatné meno.")
+        raise AdminError("Invalid name.")
     if store.get_user(name):
-        raise AdminError("Taký používateľ už existuje.")
+        raise AdminError("Such a user already exists.")
     store.db().execute("INSERT INTO users(username, pw_hash, admin, note) VALUES (?,?,?,?)",
                        (name, _password(b.get("password")), int(bool(b.get("admin"))), (b.get("note") or "").strip()))
     return {"ok": True}
@@ -103,12 +104,12 @@ def user_update(me, b):
     name = b.get("username") or ""
     u = store.get_user(name)
     if not u:
-        raise AdminError("Používateľ neexistuje.")
+        raise AdminError("User does not exist.")
     db = store.db()
     if "admin" in b and not b["admin"] and u["admin"] and _admins_left(exclude=name) == 0:
-        raise AdminError("Aspoň jeden admin musí zostať.")
+        raise AdminError("At least one administrator must remain.")
     if b.get("disabled") and u["admin"] and _admins_left(exclude=name) == 0:
-        raise AdminError("Posledného admina nemožno zablokovať.")
+        raise AdminError("The last administrator cannot be disabled.")
     if "admin" in b:
         db.execute("UPDATE users SET admin=? WHERE username=?", (int(bool(b["admin"])), name))
     if "disabled" in b:
@@ -133,11 +134,11 @@ def user_delete(me, b):
     name = b.get("username") or ""
     u = store.get_user(name)
     if not u:
-        raise AdminError("Používateľ neexistuje.")
+        raise AdminError("User does not exist.")
     if name.lower() == me.lower():
-        raise AdminError("Sám seba zmazať nemôžeš.")
+        raise AdminError("You cannot delete yourself.")
     if u["admin"] and _admins_left(exclude=name) == 0:
-        raise AdminError("Aspoň jeden admin musí zostať.")
+        raise AdminError("At least one administrator must remain.")
     db = store.db()
     for sql in ("DELETE FROM users WHERE username=?", "DELETE FROM access WHERE username=?",
                 "DELETE FROM sessions WHERE username=?", "DELETE FROM group_members WHERE username=?"):
@@ -148,9 +149,9 @@ def user_delete(me, b):
 def group_create(_me, b):
     name = (b.get("name") or "").strip()
     if not store.valid_name(name):
-        raise AdminError("Neplatný názov skupiny.")
+        raise AdminError("Invalid group name.")
     if store.db().execute("SELECT 1 FROM groups WHERE name=?", (name,)).fetchone():
-        raise AdminError("Taká skupina už existuje.")
+        raise AdminError("Such a group already exists.")
     store.db().execute("INSERT INTO groups VALUES (?,?)", (name, (b.get("note") or "").strip()))
     return {"ok": True}
 
@@ -159,7 +160,7 @@ def group_update(_me, b):
     name = b.get("name") or ""
     db = store.db()
     if not db.execute("SELECT 1 FROM groups WHERE name=?", (name,)).fetchone():
-        raise AdminError("Skupina neexistuje.")
+        raise AdminError("Group does not exist.")
     if "note" in b:
         db.execute("UPDATE groups SET note=? WHERE name=?", ((b["note"] or "").strip(), name))
     if "members" in b:
@@ -182,16 +183,16 @@ def group_delete(_me, b):
 def grant(_me, b):
     pr = _principal(b)
     if not isinstance(b.get("path") or "", str):
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     try:
         rel = ids.clean_rel(b.get("path") or "")
     except ids.BadId:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if not os.path.isdir(ids.abs_path(rel)):
-        raise AdminError("Taký album neexistuje.")
+        raise AdminError("No such album.")
     deny = bool(b.get("deny"))
     if deny and rel == "":
-        raise AdminError("Celú knižnicu vylúčiť nemožno, stačí odobrať prístup.")
+        raise AdminError("The whole library cannot be excluded, remove the access instead.")
     # povolenie a vylucenie toho isteho albumu sa navzajom nahradia
     store.db().execute("INSERT OR REPLACE INTO access(username, path, deny) VALUES (?,?,?)", (pr, rel, int(deny)))
     return {"ok": True}
@@ -210,7 +211,7 @@ def _state_fn(t, pr):
 
     def state(path):
         if perm.admin:
-            return {"rule": None, "effective": "all", "via": "admin vidí všetko"}
+            return {"rule": None, "effective": "all", "via": {"admin": True}}
         rule = None if path not in own else ("deny" if own[path] else "allow")
         if perm.can_browse(path):
             eff = "yes"
@@ -222,13 +223,12 @@ def _state_fn(t, pr):
         br = perm.best_rule(path)
         if br and path not in own:
             bpath, bdeny, bown = br
-            src = ""
+            via = {"deny": bool(bdeny), "path": bpath, "groups": []}
             if not bown and t == "user":
                 which = [g for g in sorted(groups) if store.db().execute(
                     "SELECT 1 FROM access WHERE username=? AND path=? AND deny=?",
                     (store.GROUP_PREFIX + g, bpath, int(bdeny))).fetchone()]
-                src = " (skupina " + ", ".join(which or sorted(groups)) + ")"
-            via = ("vylúčené v " if bdeny else "povolené cez ") + (bpath or "celú knižnicu") + src
+                via["groups"] = which or sorted(groups)
         return {"rule": rule, "effective": eff, "via": via}
 
     return state
@@ -241,7 +241,7 @@ def access_view(_me, b):
         rel = ids.clean_rel(b.get("path") or "")
         dirs, files = media.list_dir(rel)
     except (ids.BadId, OSError):
-        raise AdminError("Album neexistuje.")
+        raise AdminError("Album does not exist.")
     state = _state_fn(b.get("type"), pr)
     return {"path": rel, "self": state(rel), "files": len(files),
             "albums": [{"name": d["name"], "path": d["rel"], **state(d["rel"])} for d in dirs]}
@@ -253,21 +253,21 @@ def album_access(_me, b):
     db = store.db()
     out = []
     for g in db.execute("SELECT name FROM groups ORDER BY name COLLATE NOCASE"):
-        out.append({"type": "group", "name": g["name"], "label": "Skupina " + g["name"],
+        out.append({"type": "group", "name": g["name"],
                     **_state_fn("group", store.GROUP_PREFIX + g["name"])(rel)})
     for u in db.execute("SELECT username, admin, disabled FROM users ORDER BY username COLLATE NOCASE"):
         if u["admin"]:
             continue  # admin vidi vsetko, nema zmysel ho nastavovat
-        out.append({"type": "user", "name": u["username"], "label": u["username"] + (" (zablokovaný)" if u["disabled"] else ""),
+        out.append({"type": "user", "name": u["username"], "disabled": bool(u["disabled"]),
                     **_state_fn("user", u["username"])(rel)})
-    out.append({"type": "guest", "name": "", "label": "Bez prihlásenia", **_state_fn("guest", store.GUEST)(rel)})
+    out.append({"type": "guest", "name": "", **_state_fn("guest", store.GUEST)(rel)})
     return {"path": rel, "principals": out}
 
 
 def revoke(_me, b):
     pr = _principal(b)
     if not isinstance(b.get("path") or "", str):
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     store.db().execute("DELETE FROM access WHERE username=? AND path=?", (pr, b.get("path") or ""))
     return {"ok": True}
 
@@ -277,7 +277,7 @@ def albums(_me, b):
         rel = ids.clean_rel(b.get("path") or "")
         dirs, files = media.list_dir(rel)
     except (ids.BadId, OSError):
-        raise AdminError("Album neexistuje.")
+        raise AdminError("Album does not exist.")
     return {"path": rel, "albums": [d["name"] for d in dirs], "files": len(files)}
 
 
@@ -290,6 +290,8 @@ def settings(_me, b):
             store.set_setting(k, "1" if b[k] else "0")
     if "root_album_order" in b:
         store.set_setting("root_album_order", "desc" if b["root_album_order"] == "desc" else "asc")
+    if "language" in b:
+        store.set_setting("language", b["language"] if b["language"] in i18n.LANGS else "auto")
     return {"ok": True}
 
 
@@ -297,9 +299,9 @@ def _album_path(b) -> str:
     try:
         rel = ids.clean_rel(b.get("path") or "")
     except ids.BadId:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if not rel or not os.path.isdir(ids.abs_path(rel)):
-        raise AdminError("Taký album neexistuje.")
+        raise AdminError("No such album.")
     return rel
 
 
@@ -338,21 +340,21 @@ def album_set(_me, b):
             try:
                 cov = ids.clean_rel(cov)
             except ids.BadId:
-                raise AdminError("Neplatná titulná fotka.")
+                raise AdminError("Invalid cover photo.")
             if not (cov == rel or cov.startswith(rel + "/")) or not media._exists_media(cov):
-                raise AdminError("Titulná fotka musí byť z tohto albumu.")
+                raise AdminError("The cover photo must be from this album.")
         cur["cover"] = cov or None
     if "mode" in b:
         mode = b["mode"]
         if mode not in ("private", "public", "password"):
-            raise AdminError("Neznámy typ prístupu.")
+            raise AdminError("Unknown access type.")
         if mode == "password":
             if b.get("password"):
                 if len(b["password"]) < 4:
-                    raise AdminError("Heslo albumu musí mať aspoň 4 znaky.")
+                    raise AdminError("Album password must have at least 4 characters.")
                 cur["pw_hash"] = store.hash_pw(b["password"])
             elif not cur["pw_hash"]:
-                raise AdminError("Zadaj heslo albumu.")
+                raise AdminError("Enter the album password.")
             cur["mode"] = "password"
             db.execute("DELETE FROM access WHERE username=? AND path=?", (store.GUEST, rel))
         else:
@@ -379,19 +381,19 @@ def share_create(me, b):
     try:
         rel = ids.clean_rel(b.get("path") or "")
     except ids.BadId:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if not rel:
-        raise AdminError("Celú knižnicu zdieľať nemožno.")
+        raise AdminError("The whole library cannot be shared.")
     p = ids.abs_path(rel)
     if os.path.isdir(p):
         kind = "album"
     elif os.path.isfile(p) and media.kind_of(rel):
         kind = media.kind_of(rel)
     else:
-        raise AdminError("Taký album ani súbor neexistuje.")
+        raise AdminError("No such album or file.")
     days = int(b.get("days") or 0)
     if days < 0 or days > 3650:
-        raise AdminError("Neplatná platnosť.")
+        raise AdminError("Invalid validity.")
     token = store.share_create(rel, kind, me, days, b.get("allow_download"), (b.get("note") or "").strip()[:200])
     return {"token": token}
 
@@ -415,9 +417,9 @@ def _file_rel(b) -> str:
     try:
         rel = ids.clean_rel(b.get("path") or "")
     except ids.BadId:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if not rel or not media._exists_media(rel):
-        raise AdminError("Taký súbor neexistuje.")
+        raise AdminError("No such file.")
     return rel
 
 
@@ -425,7 +427,7 @@ def tag_add(_me, b):
     rel = _file_rel(b)
     name = " ".join((b.get("name") or "").split())[:64]
     if not name:
-        raise AdminError("Zadaj názov tagu.")
+        raise AdminError("Enter a tag name.")
     db = store.db()
     db.execute("INSERT OR IGNORE INTO tags(name) VALUES (?)", (name,))
     tid = db.execute("SELECT id FROM tags WHERE name=?", (name,)).fetchone()["id"]
@@ -438,7 +440,7 @@ def tag_remove(_me, b):
     rel = _file_rel(b)
     t = catalog.parse_tag_id(b.get("tag") or "")
     if not t or t[0] != "desc":
-        raise AdminError("Neplatný tag.")
+        raise AdminError("Invalid tag.")
     db = store.db()
     row = db.execute("SELECT source FROM item_tags WHERE path=? AND tag_id=?", (rel, t[1])).fetchone()
     if row and row["source"] == "file":
@@ -469,7 +471,7 @@ def _criteria(b) -> dict:
         v = (c.get(k) or "").strip()
         if v:
             if len(v) != 10 or v[4] != "-" or v[7] != "-":
-                raise AdminError("Dátum má tvar RRRR-MM-DD.")
+                raise AdminError("Dates use the format YYYY-MM-DD.")
             out[k] = v
     if c.get("types"):
         out["types"] = [t for t in c["types"] if t in ("photo", "video")]
@@ -477,16 +479,16 @@ def _criteria(b) -> dict:
         try:
             out["path"] = ids.clean_rel(c["path"])
         except ids.BadId:
-            raise AdminError("Neplatný album.")
+            raise AdminError("Invalid album.")
     if not out:
-        raise AdminError("Zadaj aspoň jedno kritérium.")
+        raise AdminError("Enter at least one criterion.")
     return out
 
 
 def smart_save(me, b):
     name = (b.get("name") or "").strip()[:100]
     if not name:
-        raise AdminError("Zadaj názov chytrého albumu.")
+        raise AdminError("Enter a name for the smart album.")
     crit = json.dumps(_criteria(b), ensure_ascii=False)
     db = store.db()
     sid = catalog.parse_smart_id(b.get("id") or "")
@@ -559,11 +561,11 @@ def moves_remap(_me, b):
     try:
         new = ids.clean_rel(b.get("new") or "")
     except ids.BadId:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if not old or not new or not os.path.isdir(ids.abs_path(new)):
-        raise AdminError("Cieľový album neexistuje.")
+        raise AdminError("The target album does not exist.")
     if new == old or new.startswith(old + "/"):
-        raise AdminError("Album nemožno presunúť do seba.")
+        raise AdminError("An album cannot be moved into itself.")
     moves.rewrite({old: new}, None, "manual")
     store.db().execute("DELETE FROM moves_pending WHERE old=?", (old,))
     return {"ok": True}
@@ -573,9 +575,9 @@ def orphan_delete(_me, b):
     """Zmaze pravidla, vlastnosti a zdielania pre cestu, ktora uz neexistuje (aj podcesty)."""
     old = (b.get("path") or "").strip("/")
     if not old:
-        raise AdminError("Neplatná cesta.")
+        raise AdminError("Invalid path.")
     if os.path.isdir(ids.abs_path(old)):
-        raise AdminError("Album na disku existuje, nič nemažem.")
+        raise AdminError("The album exists on disk, nothing deleted.")
     db = store.db()
     for t in ("access", "album_props", "unlocks"):
         db.execute(f"DELETE FROM {t} WHERE path=? OR path LIKE ?", (old, old + "/%"))
@@ -605,21 +607,22 @@ OPS = {
 
 async def endpoint(req: Request):
     op = req.path_params["op"]
+    lang = await run_in_threadpool(i18n.for_request, req)
     fn = OPS.get(op)
     if fn is None:
-        return JSONResponse({"error": "Neznáma operácia."}, status_code=404)
+        return JSONResponse({"error": i18n.tr("Unknown operation.", lang)}, status_code=404)
     if req.method == "POST":
         if not req.headers.get("content-type", "").startswith("application/json"):
-            return JSONResponse({"error": "Očakávam JSON."}, status_code=415)
+            return JSONResponse({"error": i18n.tr("JSON expected.", lang)}, status_code=415)
         try:
             body = json.loads(await req.body() or b"{}")
             if not isinstance(body, dict):
                 raise ValueError
         except ValueError:
-            return JSONResponse({"error": "Zlý JSON."}, status_code=400)
+            return JSONResponse({"error": i18n.tr("Bad JSON.", lang)}, status_code=400)
     else:
         if op not in ("state", "albums", "album_get", "share_list", "tag_names", "moves_state"):
-            return JSONResponse({"error": "Treba POST."}, status_code=405)
+            return JSONResponse({"error": i18n.tr("POST required.", lang)}, status_code=405)
         body = dict(req.query_params)
     body["_sid"] = req.cookies.get(config.SESSION_COOKIE)
 
@@ -633,10 +636,10 @@ async def endpoint(req: Request):
     try:
         resp = JSONResponse(await run_in_threadpool(run))
     except AdminError as e:
-        resp = JSONResponse({"error": e.msg}, status_code=e.status)
+        resp = JSONResponse({"error": i18n.tr(e.msg, lang)}, status_code=e.status)
     except (TypeError, ValueError, AttributeError):
         # nespravny tvar poziadavky (napr. stara verzia stranky) -> 400, nie 500
-        resp = JSONResponse({"error": "Neplatná požiadavka. Obnov stránku (F5)."}, status_code=400)
+        resp = JSONResponse({"error": i18n.tr("Invalid request. Reload the page (F5).", lang)}, status_code=400)
     from .web_version import VERSION
     resp.headers["x-picturestation-version"] = VERSION
     return resp

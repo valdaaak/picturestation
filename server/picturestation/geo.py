@@ -8,7 +8,7 @@ import math
 import os
 import threading
 
-from . import config
+from . import config, i18n
 
 log = logging.getLogger("picturestation.geo")
 # viac galerii na jednej VM zdiela jeden adresar (PICTURESTATION_GEONAMES)
@@ -61,7 +61,7 @@ def _load():
                     for line in fh:
                         if line.startswith("#"):
                             continue
-                        c = line.split("\t")
+                        c = line.rstrip("\r\n").split("\t")
                         if len(c) > 4:
                             _countries[c[0]] = c[4]
             _grid = grid
@@ -72,7 +72,8 @@ def _load():
 
 
 def country_name(cc: str) -> str:
-    if cc in SK_COUNTRY:
+    """Country name in the language of the current request (i18n.lang())."""
+    if i18n.lang() == "sk" and cc in SK_COUNTRY:
         return SK_COUNTRY[cc]
     if not _countries and available():
         _load()  # nazvy krajin sa nacitaju aj bez predosleho hladania miesta (napr. po restarte)

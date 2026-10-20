@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import admin, catalog, config, geo, ids, media, store
+from . import admin, catalog, config, geo, i18n, ids, media, store
 
 log = logging.getLogger("picturestation.api")
 
@@ -881,16 +881,24 @@ HANDLERS = {
 NO_SESSION_CHECK = {"SYNO.API.Info", "SYNO.PhotoStation.Auth", "SYNO.PhotoStation.Info"}
 
 
+MUTATING = {("SYNO.PhotoStation.Comment", "create"), ("SYNO.PhotoStation.Cover", "set"),
+            ("SYNO.PhotoStation.Auth", "logout")}
+
+
 def dispatch(req: Request, p: dict, sid):
     api, method, version = p.get("api"), p.get("method"), p.get("version")
     if not api or not method or not version:
         return err(E_BAD_REQUEST)
     if api not in APIS:
         return err(E_NO_API)
+    if (api, method) in MUTATING and req.method != "POST":
+        # zmena udajov len cez POST: session cookie (SameSite=Lax) prehliadac posle aj pri GET odkaze z cudzej stranky
+        return err(E_NO_PERM)
     mn, mx = APIS[api][1], APIS[api][2]
     v = _int(version, -1)
     if not mn <= v <= mx:
         return err(E_VERSION)
+    i18n.set_lang(i18n.for_request(req))
     valid, username = store.session_lookup(sid)
     headers = None
     if sid and not valid and api not in NO_SESSION_CHECK:
@@ -962,9 +970,12 @@ async def index_page(req: Request):
     from .web_version import VERSION
     with open(os.path.join(WEB_DIR, "index.html"), encoding="utf-8") as fh:
         html = fh.read()
-    for f in ("app.js", "admin.js", "style.css"):
+    for f in ("i18n.js", "app.js", "admin.js", "style.css"):
         html = html.replace(f'"{f}"', f'"{f}?v={VERSION}"')
-    html = html.replace("</head>", f'<script>window.DSP_VERSION="{VERSION}";</script>\n</head>', 1)
+    lang = await run_in_threadpool(store.get_setting, "language", "auto")
+    if lang not in i18n.LANGS:
+        lang = "auto"
+    html = html.replace("</head>", f'<script>window.PS_VERSION="{VERSION}";window.PS_LANG="{lang}";</script>\n</head>', 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"})
 
 
@@ -998,7 +1009,8 @@ async def share_api(req: Request):
     from starlette.responses import JSONResponse
     info = await run_in_threadpool(_share_info, req.path_params["token"])
     if info is None:
-        return JSONResponse({"error": "Odkaz neplatí alebo vypršal."}, status_code=404)
+        lang = await run_in_threadpool(i18n.for_request, req)
+        return JSONResponse({"error": i18n.tr("The link is not valid or has expired.", lang)}, status_code=404)
     return JSONResponse(info)
 
 
