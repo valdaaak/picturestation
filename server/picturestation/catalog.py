@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Tagy, miesta (z GPS) a chytre albumy nad indexom metadat.
 
 ID v tvare, ktory pozna appka DS photo:

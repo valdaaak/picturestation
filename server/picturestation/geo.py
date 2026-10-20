@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Miesta z GPS offline: najblizsia obec z GeoNames (cities500 + countryInfo, CC BY 4.0).
 
 Subory sa stiahnu raz do DATA_DIR/geonames (deploy.sh). Ziadne suradnice neodchadzaju von.

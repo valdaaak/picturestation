@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Test API proti umelemu stromu fotiek. Spustenie: python server/tests/test_api.py <pracovny_priecinok>"""
 import json
 import os

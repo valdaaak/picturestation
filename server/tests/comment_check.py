@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Kontrola komentarov v Edge: admin prida komentar k prvej fotke prveho albumu a zmaze ho."""
 import os
 import sys

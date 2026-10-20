@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Kontrola webovej galerie v Edge: python web_check.py http://localhost user heslo_subor vystup_dir"""
 import os
 import sys

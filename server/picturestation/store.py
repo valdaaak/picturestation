@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """SQLite: pouzivatelia, prava na albumy, sessions, cache metadat."""
 import hashlib
 import hmac

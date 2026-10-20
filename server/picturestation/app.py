@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """HTTP API v tvare Photo Station 6 webapi (/photo/webapi/*.php)."""
 import json
 import logging

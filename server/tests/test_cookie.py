@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Osobna galeria s vlastnym menom cookie (PICTURESTATION_COOKIE). Spustenie: python server/tests/test_cookie.py <pracovny_priecinok>"""
 import io
 import json

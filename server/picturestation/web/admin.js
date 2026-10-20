@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 "use strict";
 // Nastavenia pre admina: pouzivatelia, skupiny, prava na albumy, host, vseobecne.
 

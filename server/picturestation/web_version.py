@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Verzia webovej galerie = odtlacok jej suborov. Ked sa zmeni, otvorena stranka ponukne obnovenie."""
 import hashlib
 import os

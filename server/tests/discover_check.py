@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Kontrola Objavit v Edge: admin prida tag 'test-claude' k fotke, pozrie Objavit, otvori tag, tag odoberie."""
 import os
 import sys

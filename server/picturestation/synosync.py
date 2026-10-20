@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Preberanie ludi zo Synology Photos (spolocny priestor) cez API. Len citanie.
 
 Servisny ucet potrebuje v Synology Photos uroven Full Access k spolocnemu priestoru - inak

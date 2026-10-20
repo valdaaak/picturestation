@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Kontrola zdielania v Edge: admin vytvori odkaz na prvy album, anonym ho otvori, admin ho zrusi."""
 import os
 import sys

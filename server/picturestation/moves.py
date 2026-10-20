@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Rozpoznanie presunutych/premenovanych albumov a suborov a prenos vsetkeho, co je naviazane na cestu.
 
 Na ceste visia: prava a vylucenia (access), vlastnosti albumu (album_props vratane titulnej fotky),

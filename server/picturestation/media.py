@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Priecinky, metadata, nahlady, titulne fotky albumov."""
 import hashlib
 import json

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Administracia pre webovu galeriu (/api/admin/*). Len pre adminov.
 
 Ochrana proti CSRF: POST musi mat Content-Type application/json (formular z cudzej stranky

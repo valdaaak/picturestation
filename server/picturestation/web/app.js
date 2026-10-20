@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 "use strict";
 // Webova galeria nad API Photo Station (/photo/webapi). Rovnaki pouzivatelia a prava ako appka DS photo.
 

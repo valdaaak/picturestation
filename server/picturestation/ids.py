@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """ID poloziek presne ako Photo Station (sdk/WebAPI.php EncodeItemId, photoutil.php)."""
 import os
 import posixpath

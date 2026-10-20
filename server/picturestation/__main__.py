@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Spustenie servera: python3 -m picturestation"""
 import logging
 import os

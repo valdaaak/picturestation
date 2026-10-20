@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Zivy test proti beziacemu serveru: python live_check.py http://localhost user heslo_subor"""
 import json
 import sys

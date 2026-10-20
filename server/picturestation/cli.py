@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Sprava pouzivatelov a prav:  python3 -m picturestation.cli <prikaz> ...
 
   list                                   pouzivatelia a ich prava

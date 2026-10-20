@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Kontrola nastaveni v Edge: python admin_check.py http://localhost user heslo_subor vystup_dir
 Zalozi pouzivatela 'test-claude', da mu album, overi a zmaze ho."""
 import os

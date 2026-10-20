@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Import tagov a albumov zo Synology Photos (DSM 7) - exporty .tsv z databazy synofoto.
 
   python3 -m picturestation.synofoto_import PRIECINOK            # nanecisto

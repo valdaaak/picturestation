@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Zoznam osob v spolocnom priestore (len citanie). Heslo cez stdin.
 python3 syno_people_list.py https://nas.example.com:5001 picturestation-sync < heslo"""
 import json

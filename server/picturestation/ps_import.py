@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Import povodnych prav z databazy Photo Station (pg_dump --data-only).
 
   python3 -m picturestation.ps_import EXPORT.sql            # nanecisto: len vypise, co by spravil
