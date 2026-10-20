@@ -109,9 +109,9 @@ for u in $(systemctl list-units --plain --no-legend 'picturestation@*.service' |
   systemctl restart "$u"
 done
 
-if [ "$UPDATE" = 0 ] && ! picturestation-user list | grep -v '^@' | grep -v '^ ' | grep -q .; then
+if [ "$UPDATE" = 0 ] && ! /usr/local/bin/picturestation-user list | grep -v '^@' | grep -v '^ ' | grep -q .; then
   PW=$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')
-  printf '%s\n' "$PW" | picturestation-user useradd "$ADMIN" --admin --stdin >/dev/null
+  printf '%s\n' "$PW" | /usr/local/bin/picturestation-user useradd "$ADMIN" --admin --stdin >/dev/null
   if [ -n "$PASSFILE" ]; then
     (umask 077; printf '%s\n' "$PW" > "$PASSFILE")
     MSG="password in $PASSFILE"

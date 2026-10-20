@@ -26,6 +26,8 @@
 #   --tarball FILE        install from a local source archive (tar.gz of the repository) instead of git
 #   --yes                 do not ask, use the options and defaults
 set -euo pipefail
+# pct exec passes the host locale into the guest, where it may not exist (perl/apt warnings)
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
 
 REPO=https://github.com/valdaaak/picturestation.git
 BRANCH=main

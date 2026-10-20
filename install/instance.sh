@@ -63,10 +63,10 @@ systemctl daemon-reload
 systemctl enable "picturestation@$NAME" >/dev/null 2>&1
 systemctl restart "picturestation@$NAME"
 
-if ! picturestation-user -i "$NAME" list | awk '{print $1}' | grep -qx "$NAME"; then
+if ! /usr/local/bin/picturestation-user -i "$NAME" list | awk '{print $1}' | grep -qx "$NAME"; then
   PW=$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')
   (umask 077; printf '%s\n' "$PW" > "/root/picturestation-$NAME.pass")
-  printf '%s\n' "$PW" | picturestation-user -i "$NAME" useradd "$NAME" --admin --stdin --note "owner" >/dev/null
+  printf '%s\n' "$PW" | /usr/local/bin/picturestation-user -i "$NAME" useradd "$NAME" --admin --stdin --note "owner" >/dev/null
   echo "owner $NAME, password in /root/picturestation-$NAME.pass"
 fi
 sleep 2
