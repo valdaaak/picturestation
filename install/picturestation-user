@@ -1,0 +1,17 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Picturestation user management; run as root, the database belongs to user picturestation.
+#   picturestation-user list               main gallery
+#   picturestation-user -i NAME list       personal gallery NAME (/etc/picturestation/NAME.env)
+#   picturestation-user --help             all commands
+ENVF=/etc/picturestation/picturestation.env
+if [ "${1:-}" = "-i" ]; then
+  case "${2:-}" in ""|*[!a-z0-9_-]*) echo "usage: picturestation-user -i NAME command ..." >&2; exit 2 ;; esac
+  ENVF=/etc/picturestation/$2.env; shift 2
+  [ -f "$ENVF" ] || { echo "$ENVF does not exist" >&2; exit 1; }
+fi
+set -a; . "$ENVF"; set +a
+exec runuser -u picturestation -- env -u HOME PYTHONPATH=/opt/picturestation \
+  PICTURESTATION_ROOT="${PICTURESTATION_ROOT:-${DSPHOTO_ROOT:-/mnt/photo}}" \
+  PICTURESTATION_DATA="${PICTURESTATION_DATA:-${DSPHOTO_DATA:-/var/lib/picturestation}}" \
+  python3 -m picturestation.cli "$@"

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#111214">
+<title>Fotky</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e8a33d'/%3E%3Ccircle cx='16' cy='17' r='7' fill='none' stroke='%23111' stroke-width='3'/%3E%3Crect x='11' y='6' width='10' height='4' rx='1.5' fill='%23111'/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/" id="brand">Fotky</a>
+  <nav class="tabs">
+    <a href="#/" data-tab="albums">Albumy</a>
+    <a href="#/t" data-tab="timeline">Časová os</a>
+    <a href="#/x" data-tab="discover">Zbierky</a>
+    <a href="#/admin" data-tab="admin" id="adminTab" hidden>Nastavenia</a>
+  </nav>
+  <form class="search" id="searchForm" role="search">
+    <input type="search" id="searchInput" placeholder="Hľadať album alebo súbor" aria-label="Hľadať">
+  </form>
+  <div class="user">
+    <span id="userName"></span>
+    <button type="button" id="loginBtn" class="link">Prihlásiť</button>
+    <button type="button" id="logoutBtn" class="link" hidden>Odhlásiť</button>
+  </div>
+</header>
+
+<section id="admin" class="admin" hidden></section>
+<main id="gallery">
+  <div class="bar">
+    <nav class="crumbs" id="crumbs" aria-label="Cesta"></nav>
+    <div class="tools">
+      <button type="button" class="link" id="accessAlbumBtn" hidden>Prístup</button>
+      <button type="button" class="link" id="shareAlbumBtn" hidden>Zdieľať</button>
+      <button type="button" class="link" id="editAlbumBtn" hidden>Upraviť album</button>
+      <span class="count" id="count"></span>
+      <select id="sortSel" aria-label="Zoradenie">
+        <option value="takendate|asc">Dátum, najstaršie</option>
+        <option value="takendate|desc">Dátum, najnovšie</option>
+        <option value="filename|asc">Názov A–Z</option>
+      </select>
+    </div>
+  </div>
+  <p id="albumDesc" class="album-desc" hidden></p>
+  <form id="unlockForm" class="unlock" hidden>
+    <p>Tento album je chránený heslom.</p>
+    <input type="password" name="password" placeholder="Heslo albumu" autocomplete="off" required>
+    <button type="submit" class="primary">Otvoriť</button>
+    <p class="err" id="unlockErr" hidden></p>
+  </form>
+  <section id="discover" class="discover" hidden></section>
+  <section id="albums" class="albums"></section>
+  <section id="grid" class="grid"></section>
+  <div id="empty" class="empty" hidden></div>
+  <div id="sentinel" class="sentinel"></div>
+  <div id="spinner" class="spinner" hidden></div>
+</main>
+
+<div id="viewer" class="viewer" hidden>
+  <div class="v-top">
+    <span class="v-title" id="vTitle"></span>
+    <span class="v-actions">
+      <button type="button" id="vShareBtn" title="Zdieľať odkazom" hidden>Zdieľať</button>
+      <button type="button" id="vCoverBtn" title="Nastaviť ako titulnú fotku albumu" hidden>Titulná</button>
+      <button type="button" id="vInfoBtn" title="Informácie (i)">Info</button>
+      <a id="vDownload" href="#" download>Originál</a>
+      <button type="button" id="vClose" title="Zavrieť (Esc)">Zavrieť</button>
+    </span>
+  </div>
+  <div class="v-stage" id="vStage">
+    <button type="button" class="v-nav prev" id="vPrev" aria-label="Predchádzajúca">‹</button>
+    <img id="vImg" alt="">
+    <video id="vVideo" controls playsinline preload="metadata"></video>
+    <div id="vMsg" class="v-msg" hidden></div>
+    <button type="button" class="v-nav next" id="vNext" aria-label="Ďalšia">›</button>
+  </div>
+  <aside class="v-info" id="vInfo" hidden></aside>
+</div>
+
+<dialog id="loginDlg">
+  <form method="dialog" id="loginForm">
+    <h2 id="loginTitle">Prihlásenie</h2>
+    <label>Meno <input name="username" autocomplete="username" required></label>
+    <label>Heslo <input name="password" type="password" autocomplete="current-password" required></label>
+    <p class="err" id="loginErr" hidden></p>
+    <div class="row">
+      <button type="button" id="loginCancel" class="link">Zrušiť</button>
+      <button type="submit" class="primary">Prihlásiť</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>

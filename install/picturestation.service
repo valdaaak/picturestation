@@ -1,0 +1,27 @@
+[Unit]
+Description=Picturestation photo gallery
+After=network-online.target remote-fs.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/photo
+
+[Service]
+User=picturestation
+Group=picturestation
+EnvironmentFile=/etc/picturestation/picturestation.env
+Environment=PYTHONPATH=/opt/picturestation
+WorkingDirectory=/var/lib/picturestation
+ExecStart=/usr/bin/python3 -m picturestation
+Restart=on-failure
+RestartSec=5
+Nice=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/picturestation
+ReadOnlyPaths=/mnt/photo
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
