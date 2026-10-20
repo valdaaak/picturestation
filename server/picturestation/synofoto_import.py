@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Import tagov a albumov zo Synology Photos (DSM 7) - exporty .tsv z databazy synofoto.
+"""Import of tags and albums from Synology Photos (DSM 7), from .tsv exports of the synofoto database.
 
-  python3 -m picturestation.synofoto_import PRIECINOK            # nanecisto
-  python3 -m picturestation.synofoto_import PRIECINOK --apply
+  python3 -m picturestation.synofoto_import FOLDER            # dry run
+  python3 -m picturestation.synofoto_import FOLDER --apply
 
-Ocakava subory: tags.tsv, unit_tags.tsv, condition_albums.tsv, normal_albums.tsv.
-- tagy zo zdielaneho priestoru (id_user 0 = share photo) -> nase tagy (source='synofoto'), rovnaky nazov = jeden tag
-- albumy podla tagov (condition_album) -> chytre albumy s rovnakym nazvom
-- bezne albumy (normal_album) -> tag s nazvom albumu + chytry album
-Osobne priestory pouzivatelov (id_user != 0) sa preskakuju - nie su v share photo.
-Existujuce chytre albumy s rovnakym nazvom sa nemenia.
+Expected files: tags.tsv, unit_tags.tsv, condition_albums.tsv, normal_albums.tsv.
+- tags of the shared space (id_user 0 = the photo share) -> Picturestation tags (source 'synofoto'),
+  the same name = one tag
+- albums by tags (condition_album) -> smart albums with the same name
+- normal albums (normal_album) -> a tag named like the album + a smart album
+Personal spaces of users (id_user != 0) are skipped, they are not in the photo share.
+Existing smart albums with the same name are not changed.
 """
 import argparse
 import collections
@@ -74,7 +75,7 @@ def main(argv=None):
 
     # tagy v nasej databaze (bez ohladu na velkost pismen)
     existing = {r["name"].lower(): r["name"] for r in db.execute("SELECT name FROM tags")}
-    print("Tagy zo Synology Photos (zdielany priestor):")
+    print("Tags from Synology Photos (shared space):")
     added_total = 0
     for tag, rels in sorted(by_tag.items(), key=lambda x: -len(x[1])):
         tid = tag_id(db, tag, a.apply)
@@ -86,24 +87,24 @@ def main(argv=None):
             suppressed = set()
         new = rels - have - suppressed
         added_total += len(new)
-        note = f"spoji sa s existujucim '{existing[tag.lower()]}'" if tag.lower() in existing else "novy tag"
-        print(f"  {tag}: fotiek {len(rels)}, uz ma {len(rels & have)}, pribudne {len(new)}"
-              f"{', nenajdenych ' + str(missing[tag]) if missing[tag] else ''} ({note})")
+        note = f"merged with the existing '{existing[tag.lower()]}'" if tag.lower() in existing else "new tag"
+        print(f"  {tag}: photos {len(rels)}, already tagged {len(rels & have)}, new {len(new)}"
+              f"{', not found ' + str(missing[tag]) if missing[tag] else ''} ({note})")
         if a.apply:
             for rel in new:
                 db.execute("INSERT OR IGNORE INTO item_tags(path, tag_id, source) VALUES (?,?,'synofoto')", (rel, tid))
     for tag, n in missing.items():
         if tag not in by_tag:
-            print(f"  {tag}: {n} fotiek nenajdenych v galerii (preskocene)")
+            print(f"  {tag}: {n} photos not found in the gallery (skipped)")
     if skipped_personal:
-        print("Preskocene (osobne priestory, nie su v share photo):", dict(skipped_personal))
+        print("Skipped (personal spaces, not in the photo share):", dict(skipped_personal))
 
     # --- nazvy tagov podla id v Synology Photos ---
     syno_tag = {r[0]: r[2].strip() for r in read_tsv(os.path.join(d, "tags.tsv")) if len(r) >= 3}
 
     # --- albumy podla tagov -> chytre albumy ---
     names = {r["name"].lower() for r in db.execute("SELECT name FROM smart_albums")}
-    print("Albumy podla tagov -> chytre albumy:")
+    print("Albums by tags -> smart albums:")
     for row in read_tsv(os.path.join(d, "condition_albums.tsv")):
         if len(row) < 3:
             continue
@@ -111,19 +112,19 @@ def main(argv=None):
         try:
             cond = json.loads(row[2])
         except ValueError:
-            print(f"  {name}: neznama podmienka, preskakujem")
+            print(f"  {name}: unknown condition, skipped")
             continue
         tnames = [syno_tag.get(str(x)) for x in cond.get("general_tag", [])]
         tnames = [t for t in tnames if t]
         extra = set(cond) - {"general_tag", "general_tag_policy", "user_id"}
         if not tnames or extra or cond.get("general_tag_policy", "or") != "or":
-            print(f"  {name}: podmienka {cond} nie je len 'jeden z tagov' - preskakujem")
+            print(f"  {name}: condition {cond} is not just 'any of the tags' - skipped")
             continue
         if name.lower() in names:
-            print(f"  {name}: chytry album uz existuje - nemenim")
+            print(f"  {name}: the smart album already exists - not changed")
             continue
         tids = [tag_id(db, t, a.apply) for t in tnames]
-        print(f"  {name}: tagy {tnames}")
+        print(f"  {name}: tags {tnames}")
         if a.apply:
             db.execute("INSERT INTO smart_albums(name, criteria, created_by, created) VALUES (?,?,?,?)",
                        (name, json.dumps({"tags": [t for t in tids if t]}), "synofoto", int(time.time())))
@@ -141,11 +142,11 @@ def main(argv=None):
             amiss[aname] += 1
             continue
         albums[aname].add(rel)
-    print("Bezne albumy -> tag + chytry album:")
+    print("Normal albums -> tag + smart album:")
     for aname, rels in albums.items():
         exists_smart = aname.lower() in names
-        print(f"  {aname}: fotiek {len(rels)}{', nenajdenych ' + str(amiss[aname]) if amiss[aname] else ''}"
-              f"{', chytry album uz existuje' if exists_smart else ''}")
+        print(f"  {aname}: photos {len(rels)}{', not found ' + str(amiss[aname]) if amiss[aname] else ''}"
+              f"{', the smart album already exists' if exists_smart else ''}")
         if a.apply:
             tid = tag_id(db, aname, True)
             for rel in rels:
@@ -154,8 +155,8 @@ def main(argv=None):
                 db.execute("INSERT INTO smart_albums(name, criteria, created_by, created) VALUES (?,?,?,?)",
                            (aname, json.dumps({"tags": [tid]}), "synofoto", int(time.time())))
                 names.add(aname.lower())
-    print(f"Spolu novych priradeni tagov: {added_total}")
-    print("HOTOVO" if a.apply else "NANECISTO - nic sa nezapisalo (pridaj --apply)")
+    print(f"New tag assignments in total: {added_total}")
+    print("DONE" if a.apply else "DRY RUN - nothing was written (add --apply)")
 
 
 if __name__ == "__main__":

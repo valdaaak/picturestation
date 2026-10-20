@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Import povodnych prav z databazy Photo Station (pg_dump --data-only).
+"""Import of the original rights from a Photo Station database (pg_dump --data-only).
 
-  python3 -m picturestation.ps_import EXPORT.sql            # nanecisto: len vypise, co by spravil
-  python3 -m picturestation.ps_import EXPORT.sql --apply --passwords-out SUBOR
+  python3 -m picturestation.ps_import EXPORT.sql            # dry run: only prints what it would do
+  python3 -m picturestation.ps_import EXPORT.sql --apply --passwords-out FILE
 
-Photo Station pravo do podalbumov nededila (kazdy album mal vlastny zoznam), u nas sa povolenie dedi.
-Presne preto: povolit najvyssie povolene albumy a vylucit podalbumy, ktore dany pouzivatel v PS nemal.
-Verejne albumy sa neprenasaju, tie urci admin sam.
-Existujuce pravidla a pouzivatelia sa neprepisuju.
+Photo Station did not inherit rights into sub-albums (every album had its own list), Picturestation does.
+So the import allows the topmost allowed albums and excludes the sub-albums the user did not have in Photo Station.
+Public albums are not imported, the administrator decides about them.
+Existing rules and users are not overwritten. Imported users get new random passwords (written to FILE).
 """
 import argparse
 import collections
@@ -108,8 +108,8 @@ def main(argv=None):
             disk_dirs.add(d)
             d = d.rsplit("/", 1)[0] if "/" in d else ""
     all_paths = ps_paths | disk_dirs
-    print(f"Albumy v PS: {len(exists)}, existuju na disku: {len(ps_paths)}, chybaju: {len(missing)}; "
-          f"priecinkov na disku spolu (z indexu): {len(all_paths)}, novych od PS: {len(all_paths - ps_paths)}")
+    print(f"Albums in Photo Station: {len(exists)}, on disk: {len(ps_paths)}, missing: {len(missing)}; "
+          f"folders on disk (from the index): {len(all_paths)}, new since Photo Station: {len(all_paths - ps_paths)}")
 
     users = {u["userid"]: u for u in T["photo_user"]}
     groups = {g["groupid"]: g["groupname"] for g in T["photo_group"]}
@@ -130,14 +130,14 @@ def main(argv=None):
     for u in T["photo_user"]:
         name = u["username"]
         if u["admin"] == "t":
-            print(f"  pouzivatel {name}: admin v PS - preskakujem (admin uz existuje)")
+            print(f"  user {name}: administrator in Photo Station - skipped (an administrator already exists)")
             continue
         if store.get_user(name):
-            print(f"  pouzivatel {name}: uz existuje - nemenim")
+            print(f"  user {name}: already exists - not changed")
             continue
         pw = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
         passwords.append((name, pw))
-        print(f"  pouzivatel {name}: zalozim (nove heslo)")
+        print(f"  user {name}: will be created (new password)")
         if a.apply:
             db.execute("INSERT INTO users(username, pw_hash, admin, disabled, note) VALUES (?,?,0,?,?)",
                        (name, store.hash_pw(pw), int(u["disabled"] == "t"), "z Photo Station"))
@@ -146,7 +146,7 @@ def main(argv=None):
         members = [users[m["userid"]]["username"] for m in T["photo_user_group"]
                    if m["groupid"] == gid and m["userid"] in users]
         new = not db.execute("SELECT 1 FROM groups WHERE name=?", (gname,)).fetchone()
-        print(f"  skupina {gname}: {'zalozim' if new else 'existuje'}, clenovia {members}")
+        print(f"  group {gname}: {'will be created' if new else 'exists'}, members {members}")
         if a.apply:
             if new:
                 db.execute("INSERT INTO groups VALUES (?,?)", (gname, "z Photo Station"))
@@ -161,12 +161,12 @@ def main(argv=None):
         bad = verify(paths, allow, deny, all_paths)
         pr = store.GUEST if kind == "guest" else (store.GROUP_PREFIX + name if kind == "group" else name)
         existing = {r["path"] for r in db.execute("SELECT path FROM access WHERE username=?", (pr,))}
-        label = {"guest": "bez prihlasenia", "group": "skupina " + name, "user": name}[kind]
-        print(f"  {label}: albumov v PS {len(paths)} -> povolit {len(allow)}, vylucit {len(deny)}"
-              f"{', KONTROLA ZLYHALA na ' + str(len(bad)) if bad else ', kontrola OK'}"
-              f"{', uz ma ' + str(len(existing)) + ' vlastnych pravidiel (nemenim ich)' if existing else ''}")
+        label = {"guest": "guests", "group": "group " + name, "user": name}[kind]
+        print(f"  {label}: albums in Photo Station {len(paths)} -> allow {len(allow)}, exclude {len(deny)}"
+              f"{', CHECK FAILED on ' + str(len(bad)) if bad else ', check OK'}"
+              f"{', already has ' + str(len(existing)) + ' own rules (not changed)' if existing else ''}")
         if bad:
-            print("     rozdiely:", bad[:5])
+            print("     differences:", bad[:5])
         total_a += len(allow)
         total_d += len(deny)
         if a.apply and not bad:
@@ -190,19 +190,19 @@ def main(argv=None):
                            "ON CONFLICT(path) DO UPDATE SET title=COALESCE(title, excluded.title), "
                            "description=COALESCE(description, excluded.description)",
                            (p, s["title"] or None, s["description"] or None))
-    print(f"Titulky/popisy albumov na prenos: {n_props}")
-    print(f"Spolu pravidiel: povolit {total_a}, vylucit {total_d}")
+    print(f"Album titles/descriptions to import: {n_props}")
+    print(f"Rules in total: allow {total_a}, exclude {total_d}")
     if missing:
-        print("Albumy z PS, ktore uz na disku nie su (preskocene), prvych 10:", missing[:10])
+        print("Photo Station albums no longer on disk (skipped), first 10:", missing[:10])
     if a.apply and a.passwords_out and passwords:
         old = os.umask(0o077)
         with open(a.passwords_out, "w", encoding="utf-8") as fh:
-            fh.write("Nove hesla pouzivatelov prenesenych z Photo Station\n")
+            fh.write("New passwords of users imported from Photo Station\n")
             for n, pw in passwords:
                 fh.write(f"{n}: {pw}\n")
         os.umask(old)
-        print("Hesla zapisane do", a.passwords_out)
-    print("HOTOVO" if a.apply else "NANECISTO - nic sa nezapisalo (pridaj --apply)")
+        print("Passwords written to", a.passwords_out)
+    print("DONE" if a.apply else "DRY RUN - nothing was written (add --apply)")
 
 
 if __name__ == "__main__":

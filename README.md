@@ -1,0 +1,244 @@
+# Picturestation
+
+**A Photo Station 6 compatible photo gallery for Synology DSM 7.** [Slovensky](README.sk.md)
+
+Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works differently: it has no per-album rights for groups, no guest albums with passwords, and the DS photo app no longer connects. Picturestation brings that back. It is a small server that reads your photo folder read-only and offers:
+
+- **a web gallery** with albums, a timeline, search, tags, places, people and smart albums, in English and Slovak;
+- **the DS photo app** (Android), which connects to it as if it were Photo Station 6;
+- **Photo Station style rights**: users, groups, guest access, password-protected albums, excluded albums, share links with expiry;
+- **people from Synology Photos**: face recognition stays in Synology Photos, Picturestation shows the named people;
+- **thumbnails** that DSM already made in `@eaDir`, and its own cache for the rest.
+
+Your photos are never changed. Picturestation needs read access only and keeps its own data (users, rights, comments, thumbnail cache) in one folder.
+
+Picturestation is not affiliated with or endorsed by Synology. Synology, DSM, Photo Station, DS photo and Synology Photos are trademarks of Synology Inc.
+
+![Albums](docs/screenshots/albums.png)
+
+| Viewer with details, tags and comments | Collections: smart albums, tags, places, people |
+|---|---|
+| ![Viewer](docs/screenshots/viewer.png) | ![Collections](docs/screenshots/collections.png) |
+
+## Contents
+
+- [How it fits together](#how-it-fits-together)
+- [Install on Proxmox VE](#install-on-proxmox-ve)
+- [Install on Debian 13](#install-on-debian-13)
+- [Share the photo folder from DSM over NFS](#share-the-photo-folder-from-dsm-over-nfs)
+- [HTTPS and your own domain](#https-and-your-own-domain)
+- [The DS photo app](#the-ds-photo-app)
+- [People from Synology Photos](#people-from-synology-photos)
+- [Personal galleries](#personal-galleries)
+- [Moving from Photo Station 6](#moving-from-photo-station-6)
+- [Administration](#administration)
+- [Backup](#backup)
+- [Development](#development)
+
+## How it fits together
+
+```
+ phone (DS photo) ─┐                         ┌─ NAS (DSM 7)
+ browser ──────────┼─ HTTPS ─ DSM reverse ───┤   share "photo" ── NFS read-only ──┐
+                   │          proxy          │   Synology Photos API (optional) ──┤
+                   └─────────────────────────┘                                    │
+                                     Picturestation (LXC or VM, Debian 13) ◄──────┘
+```
+
+Picturestation runs outside the NAS, in a small container or virtual machine. It mounts the photo share read-only over NFS. The DSM reverse proxy gives it a domain name and an HTTPS certificate.
+
+## Install on Proxmox VE
+
+Run this as root in the shell of your Proxmox host:
+
+```sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/valdaaak/picturestation/main/install/proxmox.sh)"
+```
+
+The installer asks four questions:
+
+1. **Container or virtual machine.** A container (LXC) is lighter and is the default.
+2. **Host name.**
+3. **IP address**, either DHCP or a static address such as `192.168.1.50/24` plus the gateway.
+4. **NFS export with your photos**, for example `192.168.1.10:/volume1/photo`. Prepare it first, see [the NFS section](#share-the-photo-folder-from-dsm-over-nfs).
+
+At the end it prints the address and the administrator password. Sign in as `admin` and change the password in **Settings, Users**.
+
+Everything can also be given as options, without questions:
+
+```sh
+proxmox.sh --yes --type lxc --ip dhcp --nfs 192.168.1.10:/volume1/photo
+proxmox.sh --yes --type vm --id 120 --ip 192.168.1.50/24 --gw 192.168.1.1 --memory 2048 --nfs 192.168.1.10:/volume1/photo
+```
+
+`proxmox.sh --help` lists all options.
+
+**Where the NFS export is mounted:**
+- **In a container**, the Proxmox host mounts it and passes it into the container read-only, because an unprivileged container cannot mount NFS itself. The files must be readable by "others", which is the usual case for a DSM share exported with *Map all users to admin*. If they are not, use a virtual machine.
+- **In a virtual machine**, the VM mounts the export itself.
+
+**Resources.** The default is 2 GB of RAM and 2 cores. A small library uses about 250 MB, of which the place-name database takes about 200 MB. A library of 70,000 photos uses about 1 GB. Thumbnails that DSM has not made yet are generated on the first view, which needs CPU for a while.
+
+## Install on Debian 13
+
+On any Debian 13 (trixie) machine, as root:
+
+```sh
+apt install git
+git clone https://github.com/valdaaak/picturestation.git /opt/picturestation-src
+sh /opt/picturestation-src/install/install.sh --nfs 192.168.1.10:/volume1/photo
+```
+
+The installer can be run again at any time. These are its options:
+
+| Option | Meaning |
+|---|---|
+| `--photos DIR` | photo folder, default `/mnt/photo` |
+| `--nfs SERVER:/export` | mount this export read-only at the photo folder (fstab, automount) |
+| `--port N` | HTTP port, default 80 |
+| `--title TEXT` | gallery name |
+| `--admin NAME` | first administrator, default `admin` |
+| `--admin-pass-file FILE` | write the generated password to a file instead of printing it |
+| `--update` | install a new version only, keep the settings |
+
+**To update:**
+
+```sh
+git -C /opt/picturestation-src pull
+sh /opt/picturestation-src/install/install.sh --update
+```
+
+**Settings** are in `/etc/picturestation/picturestation.env`, see [the example](install/picturestation.env.example). After a change, run `systemctl restart picturestation`.
+
+## Share the photo folder from DSM over NFS
+
+1. In **Control Panel, File Services, NFS**, turn on NFS. NFSv4.1 is recommended.
+2. In **Control Panel, Shared Folder**, select `photo`, choose **Edit, NFS Permissions** and **Create** a rule:
+   - Hostname or IP: the address of Picturestation (or of the Proxmox host when you use a container)
+   - Privilege: **Read only**
+   - Squash: **Map all users to admin**
+   - Security: **sys**
+   - **Allow users to access mounted subfolders**: on
+3. The same dialog shows the mount path, for example `/volume1/photo`. Use it as `SERVER:/volume1/photo`.
+
+Picturestation never writes to the share. Its thumbnails and database live on its own disk.
+
+## HTTPS and your own domain
+
+DSM can publish Picturestation under a domain name with a Let's Encrypt certificate:
+
+1. **DNS.** Point a name such as `photos.example.com` to your public IP and forward ports 80 and 443 to the NAS.
+2. **Reverse proxy.** In **Control Panel, Login Portal, Advanced, Reverse Proxy**, choose **Create**:
+   - Source: HTTPS, `photos.example.com`, port 443
+   - Destination: HTTP, the Picturestation address, port 80
+   - **Custom Header**: add `X-Forwarded-For` with the value `$proxy_add_x_forwarded_for`
+3. **Certificate.** In **Control Panel, Security, Certificate**, choose **Add, Get a certificate from Let's Encrypt** for the name. Then, under **Settings**, assign it to the reverse proxy entry. DSM renews certificates but does not always reassign them, so check the assignment after a renewal.
+4. **Trust the proxy.** Add the address of the NAS to `PICTURESTATION_TRUSTED_PROXIES` in the settings file. The log and the login limit then see the real client address.
+
+## The DS photo app
+
+The DS photo app connects in the usual way. It was tested with the Android app 3.12.
+
+- **Address:** the domain or IP of Picturestation
+- **User name and password:** a Picturestation user, not a DSM account
+- **HTTPS** when you use the reverse proxy
+
+The app can browse albums, the timeline, tags, places, smart albums and comments, and it can download photos and play videos. Uploads and edits are refused because Picturestation is read-only. The app plays video over plain HTTP, so keep port 80 reachable if you watch videos on the go.
+
+## People from Synology Photos
+
+Synology Photos recognises faces and lets you name people. Picturestation can show these people with their photos:
+
+1. In DSM, create a user, for example `picturestation-sync`, with no rights to shared folders.
+2. In **Synology Photos, Settings, Shared Space**, give this user **Full Access**. Synology lists people only for accounts with full access. Picturestation calls read APIs only, but the account could delete photos in Synology Photos, so keep its password safe. Turn on the recycle bin for the shared space as a precaution.
+3. On the Picturestation machine:
+
+   ```sh
+   (umask 077; cat > /etc/picturestation/synology.pass)   # type the password, Enter, then Ctrl+D
+   chown picturestation /etc/picturestation/synology.pass
+   ```
+
+   Then add the following lines to `/etc/picturestation/picturestation.env` and restart:
+
+   ```
+   SYNO_URL=https://nas.example.com:5001
+   SYNO_USER=picturestation-sync
+   SYNO_PASS_FILE=/etc/picturestation/synology.pass
+   ```
+
+People are synchronised at every index run, every 30 minutes with the default settings. Only people with a name appear. Each user sees only the people on photos they are allowed to see. Guests see names only when the restriction **Guests without signing in see names of people** is turned on.
+
+## Personal galleries
+
+Photo Station had personal galleries in each user's home folder. Picturestation can run separate galleries next to the main one, each with its own users, port and database:
+
+```sh
+picturestation-instance alice 192.168.1.10:/volume1/homes/alice/Photos 8081 "Alice's photos"
+```
+
+The owner, here `alice`, becomes the administrator of that gallery. The password is in `/root/picturestation-alice.pass`. The main gallery's users have no access to it. Users are managed with `picturestation-user -i alice ...`.
+
+For NFS, add a rule for the `homes` share in DSM, in the same way as for `photo`. Publish each gallery under its own domain with a reverse proxy entry pointing to its port.
+
+## Moving from Photo Station 6
+
+These importers are optional and run once:
+
+- **Users, groups and album rights** from a Photo Station database export: `python3 -m picturestation.ps_import EXPORT.sql`. Without `--apply` it only shows what it would do. Users get new random passwords, because Photo Station passwords cannot be carried over.
+- **Tags and albums** from Synology Photos: `python3 -m picturestation.synofoto_import FOLDER`, where the folder holds `.tsv` exports of the Synology Photos database. The module help lists the files.
+- **Album titles, descriptions and covers** that Photo Station wrote into `@eaDir` are read automatically.
+
+## Administration
+
+The administrator configures everything in the web gallery under **Settings**:
+
+- users and groups;
+- album access as a tree, with allowed and excluded albums;
+- guest access and share links;
+- restrictions: downloads, GPS, camera details, comments, timeline, search;
+- the gallery name, album order and default language.
+
+![Settings](docs/screenshots/settings.png)
+
+**Moving folders.** When you move or rename folders on disk, for example at the end of the year, Picturestation recognises them by their files. It then carries over rights, titles, covers, tags, comments and links. **Settings, Moves** lists what could not be matched automatically.
+
+**Command line:**
+
+```sh
+picturestation-user list
+picturestation-user useradd jana
+picturestation-user grant jana "2024/2024-07-14 Mountains"
+picturestation-user --help
+```
+
+## Backup
+
+Everything Picturestation knows is in `/var/lib/picturestation`:
+
+- the database `picturestation.sqlite`;
+- the thumbnail cache, which can be rebuilt;
+- the place-name data, which can be downloaded again.
+
+Back up the database, or the whole container or VM with Proxmox backup. Settings are in `/etc/picturestation`.
+
+## Development
+
+```sh
+cd server
+python3 tests/test_api.py /tmp/ps-test     # server and API (needs python3-starlette, -uvicorn, -pil, -httpx)
+python3 tests/test_cookie.py /tmp/ps-cookie
+python3 tests/test_i18n.py                 # every text has a translation
+python3 tools/make_demo.py /tmp/demo       # demo library with generated photos
+```
+
+The browser checks in `server/tests/*_check.py` use Playwright with Microsoft Edge against a running gallery.
+
+The protocol that the DS photo app expects is described in [docs/protocol.md](docs/protocol.md).
+
+**Translations.** Web texts are in English in the code, with Slovak in `server/picturestation/web/i18n.js`. Server messages are in `server/picturestation/i18n.py`. A new language needs a dictionary in each of these files and its code in the language checks there.
+
+## License
+
+[GPL-3.0-or-later](LICENSE).
+
+Place names come from [GeoNames](https://www.geonames.org/) (CC BY 4.0). They are downloaded during installation.

@@ -16,7 +16,7 @@
 #   --bridge NAME         network bridge (default vmbr0)
 #   --ip dhcp|CIDR        address, e.g. 192.168.1.50/24 (default dhcp)
 #   --gw IP               gateway for a static address
-#   --memory MB           default 1024 (lxc) / 2048 (vm)
+#   --memory MB           default 2048
 #   --cores N             default 2
 #   --disk GB             default 8 (lxc) / 16 (vm)
 #   --nfs SERVER:/export  photos from an NFS export, read-only (e.g. the Synology "photo" share)
@@ -83,7 +83,7 @@ case "$TYPE" in lxc|vm) ;; *) die "--type must be lxc or vm" ;; esac
 [ -z "$NFS" ] || [ -z "$PHOTOS_HOST" ] || die "use --nfs or --photos-host, not both"
 case "$NFS" in ""|*:/*) ;; *) die "--nfs must look like server:/export" ;; esac
 [ -n "$ID" ] || ID=$(pvesh get /cluster/nextid)
-[ -n "$MEMORY" ] || { [ "$TYPE" = lxc ] && MEMORY=1024 || MEMORY=2048; }
+[ -n "$MEMORY" ] || MEMORY=2048
 [ -n "$DISK" ] || { [ "$TYPE" = lxc ] && DISK=8 || DISK=16; }
 if [ "$IP" = dhcp ]; then NETIP="ip=dhcp"; else NETIP="ip=$IP${GW:+,gw=$GW}"; fi
 if [ -z "$STORAGE" ]; then
