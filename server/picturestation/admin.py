@@ -632,6 +632,7 @@ async def endpoint(req: Request):
         res = fn(me, body)
         if req.method == "POST":
             media.clear_cover_cache()  # prava/titulky sa mohli zmenit
+            catalog.clear_covers()     # tagy a chytre albumy tiez
         return res
 
     try:

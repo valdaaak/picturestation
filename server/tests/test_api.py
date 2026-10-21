@@ -766,5 +766,15 @@ g = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="
 check("osada z SK.txt sa ukaze ako jej obec", g["data"][0]["info"].get("place") == "Velka Obec, Slovakia", g["data"][0]["info"])
 check("prepocet miest len raz na verziu dat", media.refresh_places() == 0)
 
+# --- zapamatane titulky zbierok su oddelene podla prav ---
+c.cookies.clear()
+call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
+adm("tag_add", {"path": "Súkromné/tajne.jpg", "name": "tajny-titulka"})
+adm_perm = store_mod.perm_for("spravca", None)
+kol_perm = store_mod.perm_for("kolega", None)
+tid = [t[0] for t in _cat.list_tags(adm_perm) if t[1] == "tajny-titulka"]
+check("titulka tagu pre admina", tid and _cat.cover_for(tid[0], adm_perm) == "Súkromné/tajne.jpg", tid)
+check("zapamatana titulka admina sa k inemu nedostane", tid and _cat.cover_for(tid[0], kol_perm) is None)
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)

@@ -40,6 +40,40 @@ def invalidate():
     global _snap
     with _snap_lock:
         _snap = None
+    with _covers_lock:
+        _covers.clear()
+
+
+# Covers of tags, places, people and smart albums: remembered when a list is built (it knows them anyway), so the
+# thumbnails of the Collections page do not scan the whole library one by one. Per permission state, 10 minutes.
+COVER_TTL = 600
+_covers = {}            # (perm key, id) -> (time, rel)
+_covers_lock = threading.Lock()
+
+
+def clear_covers():
+    with _covers_lock:
+        _covers.clear()
+
+
+def _perm_key(perm):
+    k = getattr(perm, "_cover_key", None)
+    if k is None:
+        k = (perm.username, perm.admin, tuple(sorted(perm.rules)), frozenset(perm.unlocked),
+             frozenset(perm.forced), frozenset(perm.items), frozenset(perm.pw_albums),
+             getattr(perm, "root_public", None))
+        perm._cover_key = k
+    return k
+
+
+def _remember(perm, rows):
+    """rows = (id, name, count, (entry, meta) or None, ...) from the list functions."""
+    k, now = _perm_key(perm), time.time()
+    with _covers_lock:
+        if len(_covers) > 20000:
+            _covers.clear()
+        for r in rows:
+            _covers[(k, r[0])] = (now, r[3][0]["rel"] if r[3] else None)
 
 
 def entry(rel, kind, mtime, size):
@@ -240,6 +274,7 @@ def list_tags(perm):
         for t in tids:
             groups.setdefault(t, []).append((entry(rel, kind, mtime, size), m))
     out = [(f"tag_{t}", names.get(t, "?"), len(v), _newest(v)) for t, v in groups.items() if t in names]
+    _remember(perm, out)
     return sorted(out, key=lambda x: x[1].lower())
 
 
@@ -257,6 +292,7 @@ def list_people(perm):
         for pid in pids:
             groups.setdefault(pid, []).append((entry(rel, kind, mtime, size), m))
     out = [(f"tag_p{pid}", names[pid], len(v), _newest(v)) for pid, v in groups.items() if pid in names]
+    _remember(perm, out)
     return sorted(out, key=lambda x: (-x[2], x[1].lower()))
 
 
@@ -269,6 +305,7 @@ def list_places(perm):
             continue
         groups.setdefault(key, []).append((entry(rel, kind, mtime, size), m))
     out = [(place_id(k), place_label(k), len(v), _newest(v), k.split("|")[0]) for k, v in groups.items()]
+    _remember(perm, out)
     return sorted(out, key=lambda x: (geo.country_name(x[4]).lower(), -x[2]))
 
 
@@ -282,6 +319,7 @@ def list_smart(perm):
             continue
         items = filter_items(perm, crit)
         out.append((f"smart_{r['id']}", r["name"], len(items), _newest(items), crit))
+    _remember(perm, out)
     return out
 
 
@@ -314,6 +352,18 @@ def _newest_of_paths(paths, perm):
 
 def cover_for(id_: str, perm):
     """Titulny subor (rel) pre tag/miesto/chytry album."""
+    key = (_perm_key(perm), id_)
+    with _covers_lock:
+        hit = _covers.get(key)
+    if hit and time.time() - hit[0] < COVER_TTL:
+        return hit[1]
+    rel = _cover_compute(id_, perm)
+    with _covers_lock:
+        _covers[key] = (time.time(), rel)
+    return rel
+
+
+def _cover_compute(id_: str, perm):
     t = parse_tag_id(id_) if id_.startswith("tag_") else None
     if t and t[0] in ("people", "desc"):
         # rychla cesta: len subory danej osoby/tagu, nie cela kniznica
