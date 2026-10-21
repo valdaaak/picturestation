@@ -43,8 +43,8 @@ echo "== packages"
 export DEBIAN_FRONTEND=noninteractive
 PKGS="python3 python3-starlette python3-uvicorn python3-pil ffmpeg sqlite3 wget unzip ca-certificates"
 [ -n "$NFS" ] && PKGS="$PKGS nfs-common"
-apt-get -qq update >/dev/null
-apt-get -qq install -y $PKGS >/dev/null
+apt-get -o DPkg::Lock::Timeout=600 -qq update >/dev/null
+apt-get -o DPkg::Lock::Timeout=600 -qq install -y $PKGS >/dev/null
 
 echo "== user and folders"
 id "$U" >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin "$U"

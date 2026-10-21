@@ -31,7 +31,7 @@ if ! grep -q "[[:space:]]$MNT[[:space:]]" /etc/fstab; then
   case "$SRC" in
     /*) echo "$SRC $MNT none bind,ro,nofail 0 0" >> /etc/fstab ;;
     *:/*)
-      command -v mount.nfs4 >/dev/null || apt-get -qq install -y nfs-common >/dev/null
+      command -v mount.nfs4 >/dev/null || apt-get -o DPkg::Lock::Timeout=600 -qq install -y nfs-common >/dev/null
       echo "$SRC $MNT nfs4 ro,hard,noatime,nofail,_netdev,x-systemd.automount,x-systemd.mount-timeout=30 0 0" >> /etc/fstab ;;
     *) echo "SOURCE must be server:/export or /local/folder" >&2; exit 2 ;;
   esac

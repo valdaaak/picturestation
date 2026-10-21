@@ -99,7 +99,7 @@ trap 'rm -rf "$WORK"' EXIT
 if [ -n "$TARBALL" ]; then
   cp "$TARBALL" "$WORK/src.tar.gz"
 else
-  command -v git >/dev/null || apt-get -qq install -y git >/dev/null
+  command -v git >/dev/null || apt-get -o DPkg::Lock::Timeout=600 -qq install -y git >/dev/null
   say "downloading $REPO ($BRANCH)"
   git clone -q --depth 1 -b "$BRANCH" "$REPO" "$WORK/src"
   tar -czf "$WORK/src.tar.gz" -C "$WORK/src" --exclude=.git .
@@ -111,7 +111,7 @@ INSTALL_ARGS="--port $PORT --admin-pass-file /root/picturestation-admin.pass"
 # NFS on the host, handed to the container read-only (an unprivileged container cannot mount NFS)
 host_nfs() {
   local mnt=/mnt/picturestation-$ID
-  command -v mount.nfs4 >/dev/null || apt-get -qq install -y nfs-common >/dev/null
+  command -v mount.nfs4 >/dev/null || apt-get -o DPkg::Lock::Timeout=600 -qq install -y nfs-common >/dev/null
   install -d -m 755 "$mnt"
   if ! grep -q "[[:space:]]$mnt[[:space:]]" /etc/fstab; then
     echo "$NFS $mnt nfs4 ro,hard,noatime,nofail,_netdev 0 0" >> /etc/fstab
