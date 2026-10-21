@@ -26,6 +26,8 @@ def clean_rel(rel: str) -> str:
     rel = (rel or "").replace("\\", "/").strip("/")
     if rel in ("", "."):
         return ""
+    if any(ord(c) < 32 for c in rel):  # NUL a riadiace znaky (os.stat by inak hodil ValueError)
+        raise BadId(rel)
     norm = posixpath.normpath(rel)
     parts = norm.split("/")
     if norm.startswith("..") or any(p in ("", ".", "..") or p.startswith(("@", "#")) for p in parts):

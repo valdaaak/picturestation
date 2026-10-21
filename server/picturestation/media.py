@@ -6,6 +6,7 @@ import logging
 import os
 import posixpath
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -327,6 +328,20 @@ EA_NAMES = {
 }
 
 
+def _ea_serve(p: str):
+    """Stat of a ready-made @eaDir file to serve directly, but only if it really resolves to a regular file
+    INSIDE this gallery's photo root. A symlink in a user-writable archive must not read files outside it."""
+    root = config.current().root
+    try:
+        rp = os.path.realpath(p)
+        if rp != root and not rp.startswith(root + os.sep):
+            return None
+        st = os.stat(rp)
+    except OSError:
+        return None
+    return st if stat.S_ISREG(st.st_mode) else None
+
+
 def _ea_thumb(rel: str, size: str):
     d, n = posixpath.split(rel)
     base = os.path.join(ids.abs_path(d), "@eaDir", n)
@@ -335,13 +350,10 @@ def _ea_thumb(rel: str, size: str):
     except OSError:
         return None
     for name in EA_NAMES[size]:
-        p = os.path.join(base, name)
-        try:
-            # Nahlad starsi nez original = original bol upraveny -> nepouzit.
-            if os.stat(p).st_mtime + 5 >= src_m:
-                return p
-        except OSError:
-            continue
+        st = _ea_serve(os.path.join(base, name))
+        # Nahlad starsi nez original = original bol upraveny -> nepouzit.
+        if st and st.st_mtime + 5 >= src_m:
+            return os.path.join(base, name)
     return None
 
 
@@ -359,9 +371,9 @@ def web_video(rel: str):
     d, n = posixpath.split(rel)
     base = os.path.join(ids.abs_path(d), "@eaDir", n)
     for name in EA_VIDEOS:
-        p = os.path.join(base, name)
-        if os.path.isfile(p) and os.path.getsize(p) > 0:
-            return p
+        st = _ea_serve(os.path.join(base, name))
+        if st and st.st_size > 0:
+            return os.path.join(base, name)
     return None
 
 
@@ -458,8 +470,11 @@ COVER_TTL = 600
 
 
 def clear_cover_cache():
+    """Drop album cover cache of the current gallery only (one tenant's change must not flush others)."""
+    name = config.current().name
     with _lock:
-        _cover_cache.clear()
+        for k in [k for k in _cover_cache if k[0] == name]:
+            del _cover_cache[k]
 
 
 def _set_cover(rel: str):

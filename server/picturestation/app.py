@@ -921,7 +921,7 @@ def dispatch(req: Request, p: dict, sid):
     if ctx.new_sid:
         g = config.current()
         resp.set_cookie(g.cookie, ctx.new_sid, path=g.cookie_path, httponly=True, samesite="lax",
-                        max_age=config.SESSION_DAYS * 86400)
+                        secure=store.is_https(req), max_age=config.SESSION_DAYS * 86400)
     return resp
 
 
@@ -939,6 +939,7 @@ async def webapi(req: Request):
     resp = await run_in_threadpool(dispatch, req, p, sid)
     from .web_version import VERSION
     resp.headers["x-picturestation-version"] = VERSION
+    resp.headers["X-Content-Type-Options"] = "nosniff"  # JSON je servovany ako text/plain (kvoli appke)
     return resp
 
 
@@ -955,6 +956,7 @@ class WebFiles(StaticFiles):
         else:
             resp.headers["Cache-Control"] = "no-cache"  # male subory, revalidacia cez ETag
         resp.headers["X-Content-Type-Options"] = "nosniff"
+        resp.headers["X-Frame-Options"] = "DENY"
         return resp
 
 
@@ -971,12 +973,13 @@ async def index_page(req: Request):
         lang = "auto"
     from . import __version__
     g = config.current()
-    base = json.dumps(g.base)
+    base = json.dumps(g.base).replace("</", "<\\/")  # nikdy neuzavrie <script> (base = "" alebo "/~meno")
     html = html.replace("</head>", f'<script>window.PS_VERSION="{VERSION}";window.PS_LANG="{lang}";'
                                    f'window.PS_RELEASE="{__version__}";'
                                    f'window.PS_BASE={base};window.PS_MAIN={"true" if g.is_main else "false"};'
                                    f'</script>\n</head>', 1)
-    return HTMLResponse(html, headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"})
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff",
+                                       "X-Frame-Options": "DENY"})
 
 
 async def photo_redirect(req: Request):

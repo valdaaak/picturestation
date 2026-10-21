@@ -776,5 +776,87 @@ tid = [t[0] for t in _cat.list_tags(adm_perm) if t[1] == "tajny-titulka"]
 check("titulka tagu pre admina", tid and _cat.cover_for(tid[0], adm_perm) == "Súkromné/tajne.jpg", tid)
 check("zapamatana titulka admina sa k inemu nedostane", tid and _cat.cover_for(tid[0], kol_perm) is None)
 
+# ================= bezpecnostne regresie (audit 2026-10) =================
+from picturestation import store as _sec_store  # noqa: E402
+
+# 1) Vnorene heslo / zdielanie nesmie obist blizsi album s heslom (_pw_ok)
+pm = _sec_store.Perm("hostX", False, [])
+pm.pw_albums = {"A", "A/B"}
+pm.unlocked = {"A"}
+check("odomknutie A pusti A", pm.can_browse("A"))
+check("odomknutie A pusti nechranene A/x", pm.can_browse("A/x"))
+check("odomknutie A NEodomkne vnorene heslo A/B", not pm.can_browse("A/B"))
+pm.unlocked = {"A", "A/B"}
+check("odomknutie oboch pusti A/B", pm.can_browse("A/B"))
+pf = _sec_store.Perm("hostY", False, [])
+pf.pw_albums = {"A", "A/B"}
+pf.forced = {"A"}
+check("share nad A NEobide heslo A/B", not pf.can_browse("A/B"))
+check("share nad A pusti nechranene A/x", pf.can_browse("A/x"))
+pf.forced = {"A/B"}
+check("share priamo na A/B pusti A/B", pf.can_browse("A/B"))
+
+# 2) cez API: share nad rodicom neukaze album s heslom pod nim, nechraneny ano
+c.cookies.clear()
+call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
+adm("album_set", {"path": "2001/Maxim", "mode": "password", "password": "secpw123"})  # cisty stav pre tento test
+adm("album_set", {"path": "2001/Rodina", "mode": "private"})
+rs = adm("share_create", {"path": "2001", "days": 30})
+tok2 = rs.json()["token"]
+sp2 = TestClient(appmod.app)
+rr = gcall(sp2, "album.php", api="SYNO.PhotoStation.Album", method="list", version="1",
+           id=ids.album_id("2001/Maxim"), share=tok2, type="photo")
+check("share rodica: album s heslom ostane zamknuty", rr.get("error", {}).get("code") in (416, 417), rr)
+rr = gcall(sp2, "album.php", api="SYNO.PhotoStation.Album", method="list", version="1",
+           id=ids.album_id("2001/Rodina"), share=tok2, type="photo")
+check("share rodica: nechraneny podalbum viditelny", rr.get("success") is True, rr)
+adm("share_delete", {"token": tok2})
+
+# 3) NUL / riadiace znaky v ceste
+try:
+    ids.clean_rel("a\x00b")
+    check("NUL v ceste odmietnuty", False)
+except ids.BadId:
+    check("NUL v ceste odmietnuty", True)
+
+# 4) Secure cookie podla X-Forwarded-Proto
+c3 = TestClient(appmod.app)
+r = c3.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "login", "version": "1",
+                                  "username": "spravca", "password": "heslo1234"},
+            headers={"X-Forwarded-Proto": "https"})
+ck = " ".join(r.headers.get_list("set-cookie")).lower()
+check("HTTPS -> cookie ma Secure", "secure" in ck, ck[:120])
+c4 = TestClient(appmod.app)
+r = c4.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "login", "version": "1",
+                                  "username": "spravca", "password": "heslo1234"})
+ck = " ".join(r.headers.get_list("set-cookie")).lower()
+check("HTTP -> cookie bez Secure", "secure" not in ck, ck[:120])
+
+# 5) @eaDir symlink mimo korena sa neservuje (len na systeme so symlinkami)
+import os as _os  # noqa: E402
+secret = _os.path.join(WORK, "unikat.txt")
+open(secret, "w").write("LEAK_SECRET_XYZ_UNIKATNY_RETAZEC")
+photo("2001/Leak/pic.jpg", color=(123, 45, 67))
+ea = _os.path.join(ROOT, "2001", "Leak", "@eaDir", "pic.jpg")
+_os.makedirs(ea, exist_ok=True)
+link = _os.path.join(ea, "SYNOPHOTO_THUMB_M.jpg")
+try:
+    _os.symlink(secret, link)
+    _os.utime(link, (9e9, 9e9), follow_symlinks=False) if False else None
+    import time as _t  # noqa: E402
+    _os.utime(secret, (_t.time() + 1000, _t.time() + 1000))
+    have_symlink = True
+except (OSError, NotImplementedError):
+    have_symlink = False
+if have_symlink:
+    from picturestation import media as _media  # noqa: E402
+    _media._dir_cache.clear()
+    tt = c.get(W + "thumb.php", params={"api": "SYNO.PhotoStation.Thumb", "method": "get", "version": "1",
+                                        "id": ids.item_id("photo", "2001/Leak/pic.jpg"), "size": "small"})
+    leaked = b"LEAK_SECRET_XYZ" in tt.content
+    check("@eaDir symlink mimo korena sa neservuje", not leaked, ("uniklo!" if leaked else "ok"))
+else:
+    print("OK   @eaDir symlink test preskoceny (bez podpory symlinkov)")
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)

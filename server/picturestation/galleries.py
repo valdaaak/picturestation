@@ -4,7 +4,6 @@
 Each gallery has its own database, users, thumbnails and photo folder; code and GeoNames are shared.
 A request belongs to a gallery by its host name (photos.example.com) or by the path prefix /~name/.
 """
-import concurrent.futures
 import os
 import re
 import shutil
@@ -84,7 +83,7 @@ def check_root(path: str) -> str:
     if not path.startswith("/"):
         raise GalleryError("The folder must be an absolute path.")
     try:
-        real = _probe.submit(os.path.realpath, path).result(timeout=3.0)
+        real = _probe(os.path.realpath, path)
     except Exception:
         raise GalleryError("The folder does not exist or cannot be read.")
     if not any(real == r or real.startswith(r + os.sep) for r in config.GALLERY_ROOTS):
@@ -106,13 +105,33 @@ def check_hosts(text: str, name: str) -> str:
 
 
 # ---------------- management (main gallery's admin) ----------------
-_probe = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="root-probe")
+_probe_neg = {}   # path -> time of last failed/timed-out probe (short TTL, so a dead mount is not re-probed)
+_probe_neg_lock = threading.Lock()
+PROBE_NEG_TTL = 30
+
+
+def _probe(fn, path, timeout: float = 3.0):
+    """Run a filesystem call in a throwaway daemon thread with a time limit. A dead hard NFS mount blocks
+    the worker in an uninterruptible syscall forever, so we must NOT use a fixed pool whose workers drain;
+    a leaked daemon thread is harmless. A failure/timeout is remembered briefly so we stop re-probing."""
+    with _probe_neg_lock:
+        if path in _probe_neg and time.time() - _probe_neg[path] < PROBE_NEG_TTL:
+            raise TimeoutError(path)
+    box = {}
+    t = threading.Thread(target=lambda: box.__setitem__("r", fn(path)), daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive() or "r" not in box:
+        with _probe_neg_lock:
+            _probe_neg[path] = time.time()
+        raise TimeoutError(path)
+    return box["r"]
 
 
 def root_available(path: str, timeout: float = 3.0) -> bool:
     """Is the photo folder there? With a time limit: a dead NFS mount must not hang the Settings page."""
     try:
-        return _probe.submit(os.path.isdir, path).result(timeout=timeout)
+        return bool(_probe(os.path.isdir, path, timeout))
     except Exception:
         return False
 
@@ -223,10 +242,10 @@ def remove_admin(name, user):
     tok = config.use(_in_gallery(name))
     try:
         d = store.db()
-        admins = [r["username"] for r in d.execute("SELECT username FROM users WHERE admin=1")]
-        if user not in admins:
+        if store.get_user(user) is None:
             raise GalleryError("User does not exist.")
-        if len(admins) == 1:
+        enabled_admins = [r["username"] for r in d.execute("SELECT username FROM users WHERE admin=1 AND disabled=0")]
+        if enabled_admins == [user]:
             raise GalleryError("At least one administrator must remain.")
         d.execute("DELETE FROM users WHERE username=?", (user,))
         d.execute("DELETE FROM access WHERE username=?", (user,))

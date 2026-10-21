@@ -59,9 +59,13 @@ o.cookies.set("PHPSESSID", sid)
 ca = call(o, "auth.php", api="SYNO.PhotoStation.Auth", method="checkauth", version="1")
 check("PHPSESSID cookie sa ignoruje", not ca["data"].get("username"), ca)
 check("admin API s PHPSESSID cookie = 401", o.get("/api/admin/state").status_code == 401)
-# appka DS photo posiela sid v parametri PHPSESSID - to musi ist dalej
+# prehliadac NESMIE pouzit sid z URL parametra (uniklo by cez Referer/history)
 ca = call(o, "auth.php", api="SYNO.PhotoStation.Auth", method="checkauth", version="1", PHPSESSID=sid)
-check("parameter PHPSESSID (appka) plati", ca["data"]["username"] == "alice", ca)
+check("prehliadac: parameter PHPSESSID sa ignoruje", not ca["data"].get("username"), ca)
+# appka DS photo (User-Agent Synology-...) sid v parametri PHPSESSID pouzit smie
+app2 = TestClient(appmod.app, headers={"User-Agent": "Synology-DS_photo_3.12.6"})
+ca = call(app2, "auth.php", api="SYNO.PhotoStation.Auth", method="checkauth", version="1", PHPSESSID=sid)
+check("appka: parameter PHPSESSID plati", ca["data"]["username"] == "alice", ca)
 
 call(c, "auth.php", api="SYNO.PhotoStation.Auth", method="logout", version="1")
 check("logout zmaze vlastnu cookie", not c.cookies.get("PS_ALICE"), dict(c.cookies))

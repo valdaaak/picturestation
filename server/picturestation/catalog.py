@@ -74,8 +74,11 @@ _covers_lock = threading.Lock()
 
 
 def clear_covers():
+    """Drop collection covers of the current gallery only."""
+    name = config.current().name
     with _covers_lock:
-        _covers.clear()
+        for k in [k for k in _covers if k[0][0] == name]:
+            del _covers[k]
 
 
 def _perm_key(perm):

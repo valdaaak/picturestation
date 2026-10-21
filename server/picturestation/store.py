@@ -243,18 +243,26 @@ def _is_app(req) -> bool:
 
 
 def request_sid(req, params=None):
-    """Session id of a request in the current gallery: its cookie (web), for the app also PHPSESSID
-    (cookie, URL parameter) and the X-SYNO-TOKEN header."""
+    """Session id of a request in the current gallery: its cookie (web). The DS photo app (not a browser)
+    additionally sends it in the PHPSESSID cookie, the PHPSESSID URL parameter or the X-SYNO-TOKEN header.
+    Browsers only ever use the cookie, so the URL parameter cannot leak a web session via the Referer."""
     g = config.current()
     sid = req.cookies.get(g.cookie)
-    if not sid and g.cookie != "PHPSESSID" and _is_app(req):
-        sid = req.cookies.get("PHPSESSID")
-    return sid or (params or {}).get("PHPSESSID") or req.headers.get("x-syno-token") or None
+    if not sid and _is_app(req):
+        sid = (req.cookies.get("PHPSESSID") if g.cookie != "PHPSESSID" else None) \
+            or (params or {}).get("PHPSESSID") or req.headers.get("x-syno-token")
+    return sid or None
+
+
+def is_https(req) -> bool:
+    """True when the client reached us over HTTPS (uvicorn sets scheme from X-Forwarded-Proto of a trusted proxy)."""
+    return req.url.scheme == "https" or req.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https"
 
 
 def set_session_cookie(resp, req, sid):
     g = config.current()
-    kw = dict(path=g.cookie_path, httponly=True, samesite="lax", max_age=config.SESSION_DAYS * 86400)
+    kw = dict(path=g.cookie_path, httponly=True, samesite="lax", secure=is_https(req),
+              max_age=config.SESSION_DAYS * 86400)
     resp.set_cookie(g.cookie, sid, **kw)
     if g.cookie != "PHPSESSID" and _is_app(req):
         # appka DS photo hlada sid len v cookie s menom PHPSESSID (AbsConnectionManager.getSessionId)
@@ -308,7 +316,8 @@ def authenticate(username: str, pw: str):
     if u is None:
         check_pw(pw, hash_pw("x"))  # rovnaky cas odpovede pre neexistujuceho pouzivatela
         return None
-    if u["disabled"] or not check_pw(pw, u["pw_hash"]):
+    ok = check_pw(pw, u["pw_hash"])  # run scrypt first so a disabled account is not detectable by timing
+    if u["disabled"] or not ok:
         return None
     return u
 
@@ -421,12 +430,18 @@ class Perm:
 
     root_public = False  # fotky priamo v koreni su verejne (len koren, nededi sa do albumov)
 
+    def _pw_ok(self, rel: str) -> bool:
+        """Inherited access (unlocking an ancestor, or a share link over a parent) must still stop at a
+        nearer password album that was not itself unlocked or shared."""
+        own = self.pw_owner(rel)
+        return own is None or own in self.unlocked or own in self.forced
+
     def can_browse(self, rel: str) -> bool:
         if rel == "" and self.root_public:
             return True
         return (self.admin or self._rule_allows(rel)
-                or (any(_under(rel, p) for p in self.unlocked) and not self._excluded(rel))
-                or any(_under(rel, p) for p in self.forced))
+                or (any(_under(rel, p) for p in self.unlocked) and not self._excluded(rel) and self._pw_ok(rel))
+                or (any(_under(rel, p) for p in self.forced) and self._pw_ok(rel)))
 
     def pw_owner(self, rel: str):
         """Najblizsi album s heslom, pod ktory rel patri (None = ziadny)."""
