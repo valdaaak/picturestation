@@ -211,7 +211,7 @@ The main gallery's administrator manages them under **Settings, Galleries**:
 **Photo folders** must be below `PICTURESTATION_GALLERY_ROOTS`, by default `/srv/galleries` and `/mnt/galleries`, so that the web cannot open other folders of the server. For a folder on the NAS, mount it read-only below `/mnt/galleries`. For example, add an NFS rule for the `homes` share and put this in `/etc/fstab`:
 
 ```
-192.168.1.10:/volume1/homes/alice/Photos /mnt/galleries/alice nfs4 ro,nofail,_netdev,x-systemd.automount 0 0
+192.168.1.10:/volume1/homes/alice/Photos /mnt/galleries/alice nfs4 ro,soft,timeo=100,retrans=3,nofail,_netdev,x-systemd.automount 0 0
 ```
 
 All galleries run the same code. An update of Picturestation applies to all of them at once.

@@ -4,6 +4,7 @@
 Each gallery has its own database, users, thumbnails and photo folder; code and GeoNames are shared.
 A request belongs to a gallery by its host name (photos.example.com) or by the path prefix /~name/.
 """
+import concurrent.futures
 import os
 import re
 import shutil
@@ -82,10 +83,13 @@ def check_root(path: str) -> str:
     path = (path or "").strip()
     if not path.startswith("/"):
         raise GalleryError("The folder must be an absolute path.")
-    real = os.path.realpath(path)
+    try:
+        real = _probe.submit(os.path.realpath, path).result(timeout=3.0)
+    except Exception:
+        raise GalleryError("The folder does not exist or cannot be read.")
     if not any(real == r or real.startswith(r + os.sep) for r in config.GALLERY_ROOTS):
         raise GalleryError("The folder must be inside: {roots}.", roots=", ".join(config.GALLERY_ROOTS))
-    if not os.path.isdir(real) or not os.access(real, os.R_OK | os.X_OK):
+    if not root_available(real) or not os.access(real, os.R_OK | os.X_OK):
         raise GalleryError("The folder does not exist or cannot be read.")
     return real
 
@@ -102,8 +106,19 @@ def check_hosts(text: str, name: str) -> str:
 
 
 # ---------------- management (main gallery's admin) ----------------
+_probe = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="root-probe")
+
+
+def root_available(path: str, timeout: float = 3.0) -> bool:
+    """Is the photo folder there? With a time limit: a dead NFS mount must not hang the Settings page."""
+    try:
+        return _probe.submit(os.path.isdir, path).result(timeout=timeout)
+    except Exception:
+        return False
+
+
 def info(row) -> dict:
-    root_ok = os.path.isdir(row["root"])
+    root_ok = root_available(row["root"])
     files = None
     if root_ok:
         tok = config.use(_gallery(row))
