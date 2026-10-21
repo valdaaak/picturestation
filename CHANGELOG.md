@@ -1,0 +1,18 @@
+# Changelog
+
+Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. Every release is a git tag `vX.Y.Z`. The Docker image carries the same version.
+
+## 0.1.0 – 2026-10-21
+
+First version.
+
+- **DS photo app.** The Photo Station 6 API is supported: albums, timeline, tags, places, smart albums, comments, covers, thumbnails, downloads and video.
+- **Web gallery.** It has albums, a timeline, search, a viewer with details, and collections of smart albums, tags, places and people. The interface is in English and Slovak.
+- **Rights.** Users, groups and guests are supported. Album access is shown as a tree with allowed and excluded albums, and it can also be set per album. Albums can have passwords, and share links can expire.
+- **Restrictions.** Downloads, GPS, camera details, comments, timeline and search can be limited, and photos in the root can be made public.
+- **Tags and places.** Tags come from file keywords (IPTC/XMP). Places are looked up offline from GPS with GeoNames.
+- **People from Synology Photos.** They are synchronised through a read-only service account.
+- **Moved folders.** A move is recognised by the files, and rights, titles, covers, tags, comments, links and smart albums are carried over.
+- **Importers.** Rights can be imported from Photo Station 6, and tags and albums from Synology Photos.
+- **Personal galleries.** A separate instance can run for one person's folder.
+- **Installation.** There are installers for Debian 13 and for Proxmox VE (LXC or VM), a Docker image and a compose example.

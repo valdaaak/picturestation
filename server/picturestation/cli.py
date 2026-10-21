@@ -55,6 +55,8 @@ def _path(p: str) -> str:
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="picturestation.cli", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+    from . import __version__
+    ap.add_argument("--version", action="version", version="Picturestation " + __version__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list")
     a = sub.add_parser("useradd"); a.add_argument("name"); a.add_argument("--admin", action="store_true")

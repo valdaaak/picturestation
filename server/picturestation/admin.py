@@ -83,7 +83,8 @@ def state(_me, _b):
     names = {g["name"].lower(): g["name"] for g in groups}
     for u in users:
         u["groups"] = sorted(names.get(g, g) for g in u["groups"])
-    return {"users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
+    from . import __version__
+    return {"version": __version__, "users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
             "settings": {"title": store.get_setting("title", config.TITLE), **store.flags(),
                          "root_album_order": store.get_setting("root_album_order", "asc"),
                          "language": store.get_setting("language", "auto") or "auto"}}

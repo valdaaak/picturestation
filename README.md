@@ -32,6 +32,7 @@ Picturestation is not affiliated with or endorsed by Synology. Synology, DSM, Ph
 - [Personal galleries](#personal-galleries)
 - [Moving from Photo Station 6](#moving-from-photo-station-6)
 - [Administration](#administration)
+- [Versions and updates](#versions-and-updates)
 - [Backup](#backup)
 - [Development](#development)
 
@@ -209,6 +210,18 @@ picturestation-user list
 picturestation-user useradd jana
 picturestation-user grant jana "2024/2024-07-14 Mountains"
 picturestation-user --help
+```
+
+## Versions and updates
+
+Picturestation uses semantic versioning. Releases are git tags such as `v0.1.0` and are listed in [CHANGELOG.md](CHANGELOG.md). The running version is shown at the bottom of **Settings, General**, in the log at start, and by `picturestation-user --version`.
+
+To update to a specific release on Debian or in a Proxmox guest:
+
+```sh
+git -C /opt/picturestation-src fetch --tags
+git -C /opt/picturestation-src checkout v0.1.0
+sh /opt/picturestation-src/install/install.sh --update
 ```
 
 ## Backup

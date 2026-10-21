@@ -210,6 +210,8 @@ check("admin API: bez prihlasenia 401", adm("state").status_code == 401)
 call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
 st = adm("state").json()
 check("admin state", [u["username"] for u in st["users"]] == ["kolega", "spravca"], st)
+from picturestation import __version__  # noqa: E402
+check("verzia v admin state", st.get("version") == __version__ and __version__.count(".") == 2, st.get("version"))
 r = c.post("/api/admin/user_create", data={"username": "x", "password": "12345678"})
 check("admin POST bez JSON = 415", r.status_code == 415, r.status_code)
 check("kratke heslo odmietnute", adm("user_create", {"username": "jana", "password": "kratke"}).status_code == 400)

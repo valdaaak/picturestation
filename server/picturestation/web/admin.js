@@ -391,7 +391,8 @@ const Admin = (() => {
       h("p", { class: "muted" }, t("The download ban applies to original photos. Videos can be played, so the app and the web can always "
         + "download them.")),
       h("div", { class: "row" }, h("span", { class: "grow" }), h("button", { type: "submit", class: "primary" }, t("Save"))));
-    return h("div", { class: "adm-body" }, f);
+    return h("div", { class: "adm-body" }, f,
+      h("p", { class: "muted version" }, "Picturestation " + (st.version || "")));
   }
 
   // ---------- dialogy ----------

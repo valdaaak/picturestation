@@ -125,7 +125,8 @@ sleep 2
 if systemctl is-active --quiet picturestation; then
   IP=$(hostname -I 2>/dev/null | awk '{print $1}')
   [ "$PORT" = 80 ] && URL="http://$IP/" || URL="http://$IP:$PORT/"
-  echo "== Picturestation is running: $URL"
+  VER=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' /opt/picturestation/picturestation/__init__.py)
+  echo "== Picturestation $VER is running: $URL"
 else
   echo "== service failed, see: journalctl -u picturestation" >&2
   exit 1
