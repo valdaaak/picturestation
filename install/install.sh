@@ -67,9 +67,11 @@ rm -rf /opt/picturestation/picturestation
 cp -r "$SRC/server/picturestation" /opt/picturestation/
 find /opt/picturestation -name __pycache__ -prune -exec rm -rf {} +
 install -m 644 "$SRC/install/picturestation.service" /etc/systemd/system/picturestation.service
-install -m 644 "$SRC/install/picturestation@.service" /etc/systemd/system/picturestation@.service
-install -m 755 "$SRC/install/instance.sh" /usr/local/sbin/picturestation-instance
 install -m 755 "$SRC/install/picturestation-user" /usr/local/bin/picturestation-user
+# private galleries: photo folders below /srv/galleries (local) or /mnt/galleries (NFS), managed in the web
+install -d -m 755 /srv/galleries
+# the old per-gallery services of 0.1.0 are replaced by private galleries in the main server
+rm -f /etc/systemd/system/picturestation@.service /usr/local/sbin/picturestation-instance
 
 if [ "$UPDATE" = 0 ]; then
   if [ ! -f "$ENVF" ]; then
@@ -112,7 +114,7 @@ ROOT=$(sed -n 's/^\(PICTURESTATION\|DSPHOTO\)_ROOT=//p' "$ENVF" | tail -n 1)
 ROOT=${ROOT:-/mnt/photo}
 if [ "$ROOT" != /mnt/photo ]; then
   install -d -m 755 /etc/systemd/system/picturestation.service.d
-  printf '[Unit]\nRequiresMountsFor=%s\n\n[Service]\nReadOnlyPaths=\nReadOnlyPaths=%s\n' "$ROOT" "$ROOT" \
+  printf '[Unit]\nRequiresMountsFor=%s\n\n[Service]\nReadOnlyPaths=\nReadOnlyPaths=%s -/srv/galleries -/mnt/galleries\n' "$ROOT" "$ROOT" \
     > /etc/systemd/system/picturestation.service.d/photos.conf
 else
   rm -f /etc/systemd/system/picturestation.service.d/photos.conf
@@ -123,9 +125,6 @@ echo "== services"
 systemctl daemon-reload
 systemctl enable picturestation >/dev/null 2>&1
 systemctl restart picturestation
-for u in $(systemctl list-units --plain --no-legend 'picturestation@*.service' | awk '{print $1}'); do
-  systemctl restart "$u"
-done
 
 if [ "$UPDATE" = 0 ] && ! /usr/local/bin/picturestation-user list | grep -v '^@' | grep -v '^ ' | grep -q .; then
   PW=$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')

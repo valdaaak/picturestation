@@ -10,6 +10,8 @@ services:
     volumes:
       - /volume1/photo:/photos:ro                  # your photos, read-only
       - /volume1/docker/picturestation:/data       # database, thumbnails, place names
+      # private galleries: their photo folders below /galleries, e.g. one person's photos
+      # - /volume1/homes/alice/Photos:/galleries/alice:ro
     environment:
       PUID: "1026"                                 # owner of the data folder (id of a DSM user)
       PGID: "100"

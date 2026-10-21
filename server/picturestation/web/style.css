@@ -147,10 +147,15 @@ dialog .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6
 .tag { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid var(--line); margin-left: 4px; vertical-align: 1px; }
 .tag.acc { border-color: var(--accent); color: var(--accent); }
 .tag.bad { border-color: #e5654b; color: #e5654b; }
-.grants { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; }
-.grants li { display: flex; align-items: center; gap: 8px; }
+/* rights as compact chips that wrap; summary lines and the button take a whole row */
+.grants { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.grants li { display: inline-flex; align-items: center; gap: 4px; padding: 2px 3px 2px 10px; border: 1px solid var(--line);
+  border-radius: 999px; font-size: .92em; max-width: 100%; }
+.grants li.muted, .grants li:has(> .primary) { flex-basis: 100%; border: 0; padding: 0; border-radius: 0; font-size: 1em; }
+.grants li:has(> .primary) { margin-top: 4px; }
 .grants .path { overflow-wrap: anywhere; }
-.grants .x { background: none; border: 1px solid var(--line); border-radius: 6px; width: 24px; height: 24px; cursor: pointer; color: var(--muted); line-height: 1; }
+.grants .tag { margin: 0 2px; }
+.grants .x { background: none; border: 0; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
 .grants .x:hover { color: #e5654b; border-color: #e5654b; }
 .add { color: var(--accent); }
 .chk { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; color: var(--fg) !important; font-size: 14px !important; }

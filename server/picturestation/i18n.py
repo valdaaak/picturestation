@@ -53,6 +53,18 @@ SK = {
     "Bad JSON.": "Zlý JSON.",
     "POST required.": "Treba POST.",
     "Invalid request. Reload the page (F5).": "Neplatná požiadavka. Obnov stránku (F5).",
+    # private galleries
+    "Galleries are managed in the main gallery.": "Galérie sa spravujú v hlavnej galérii.",
+    "The folder must be an absolute path.": "Priečinok musí byť zadaný celou cestou (začína /).",
+    "The folder must be inside: {roots}.": "Priečinok musí byť vnútri: {roots}.",
+    "The folder does not exist or cannot be read.": "Priečinok neexistuje alebo sa nedá čítať.",
+    "Invalid domain: {host}.": "Neplatná doména: {host}.",
+    "The domain {host} already belongs to another gallery.": "Doména {host} už patrí inej galérii.",
+    "The name may contain lower-case letters, digits and dashes (max. 31).":
+        "Meno môže obsahovať malé písmená, číslice a pomlčky (najviac 31).",
+    "Such a gallery already exists.": "Taká galéria už existuje.",
+    "Data of a gallery with this name already exist.": "Dáta galérie s týmto menom už existujú.",
+    "No such gallery.": "Taká galéria neexistuje.",
     # share links
     "The link is not valid or has expired.": "Odkaz neplatí alebo vypršal.",
 }

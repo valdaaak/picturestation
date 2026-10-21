@@ -21,6 +21,8 @@ ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/picturestation
 ReadOnlyPaths=/mnt/photo
+# photo folders of private galleries (PICTURESTATION_GALLERY_ROOTS); "-" = may not exist
+ReadOnlyPaths=-/srv/galleries -/mnt/galleries
 PrivateTmp=true
 
 [Install]

@@ -7,6 +7,7 @@ ho bez CORS preflightu poslat nevie) a session cookie ma SameSite=Lax.
 import collections
 import json
 import os
+import threading
 
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
@@ -17,13 +18,13 @@ from . import catalog, config, i18n, ids, media, store
 
 
 class AdminError(Exception):
-    def __init__(self, msg, status=400):
+    def __init__(self, msg, status=400, **kw):
         super().__init__(msg)
-        self.msg, self.status = msg, status
+        self.msg, self.status, self.kw = msg, status, kw
 
 
 def _admin_user(req: Request):
-    sid = req.cookies.get(config.SESSION_COOKIE)
+    sid = store.request_sid(req)
     user = store.session_user(sid)
     if not user:
         raise AdminError("Not logged in.", 401)
@@ -84,8 +85,8 @@ def state(_me, _b):
     for u in users:
         u["groups"] = sorted(names.get(g, g) for g in u["groups"])
     from . import __version__
-    return {"version": __version__, "users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
-            "settings": {"title": store.get_setting("title", config.TITLE), **store.flags(),
+    return {"version": __version__, "is_main": config.current().is_main, "users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
+            "settings": {"title": store.get_setting("title", store.default_title()), **store.flags(),
                          "root_album_order": store.get_setting("root_album_order", "asc"),
                          "language": store.get_setting("language", "auto") or "auto"}}
 
@@ -592,7 +593,54 @@ def comment_delete(_me, b):
     return {"ok": True}
 
 
+# ---------- private galleries (only from the main gallery) ----------
+def _galleries_op(fn):
+    def run(me, b):
+        if not config.current().is_main:
+            raise AdminError("Galleries are managed in the main gallery.", 403)
+        from . import galleries
+        try:
+            return fn(galleries, b) or {"ok": True}
+        except galleries.GalleryError as e:
+            raise AdminError(e.msg, **e.kw)
+    return run
+
+
+def _gallery_index_soon(name):
+    from . import galleries
+    g = galleries.by_name(name)
+    if g is not None:
+        threading.Thread(target=media.index_gallery, args=(g,), name="index-" + name, daemon=True).start()
+
+
+def _g_list(gal, b):
+    return {"galleries": gal.listing(), "roots": config.GALLERY_ROOTS}
+
+
+def _g_create(gal, b):
+    gal.create(b.get("name"), b.get("title"), b.get("root"), b.get("hostnames", ""), b.get("admin"), b.get("password"))
+    _gallery_index_soon((b.get("name") or "").strip().lower())
+
+
+def _g_update(gal, b):
+    gal.update(b.get("name"), title=b.get("title"), root=b.get("root"), hosts=b.get("hostnames"),
+               enabled=b.get("enabled"))
+    if b.get("root") is not None or b.get("enabled"):
+        _gallery_index_soon(b.get("name"))
+
+
+OPS_GALLERIES = {
+    "galleries_list": _galleries_op(_g_list),
+    "gallery_create": _galleries_op(_g_create),
+    "gallery_update": _galleries_op(_g_update),
+    "gallery_delete": _galleries_op(lambda gal, b: gal.delete(b.get("name"))),
+    "gallery_admin_set": _galleries_op(lambda gal, b: gal.set_admin(b.get("name"), b.get("user"), b.get("password"))),
+    "gallery_admin_remove": _galleries_op(lambda gal, b: gal.remove_admin(b.get("name"), b.get("user"))),
+}
+
+
 OPS = {
+    **OPS_GALLERIES,
     "moves_state": moves_state, "moves_remap": moves_remap, "orphan_delete": orphan_delete,
     "access_view": access_view, "album_access": album_access,
     "tag_add": tag_add, "tag_remove": tag_remove, "tag_names": tag_names,
@@ -622,10 +670,10 @@ async def endpoint(req: Request):
         except ValueError:
             return JSONResponse({"error": i18n.tr("Bad JSON.", lang)}, status_code=400)
     else:
-        if op not in ("state", "albums", "album_get", "share_list", "tag_names", "moves_state"):
+        if op not in ("state", "albums", "album_get", "share_list", "tag_names", "moves_state", "galleries_list"):
             return JSONResponse({"error": i18n.tr("POST required.", lang)}, status_code=405)
         body = dict(req.query_params)
-    body["_sid"] = req.cookies.get(config.SESSION_COOKIE)
+    body["_sid"] = store.request_sid(req)
 
     def run():
         me = _admin_user(req)
@@ -638,7 +686,7 @@ async def endpoint(req: Request):
     try:
         resp = JSONResponse(await run_in_threadpool(run))
     except AdminError as e:
-        resp = JSONResponse({"error": i18n.tr(e.msg, lang)}, status_code=e.status)
+        resp = JSONResponse({"error": i18n.tr(e.msg, lang, **e.kw)}, status_code=e.status)
     except (TypeError, ValueError, AttributeError):
         # nespravny tvar poziadavky (napr. stara verzia stranky) -> 400, nie 500
         resp = JSONResponse({"error": i18n.tr("Invalid request. Reload the page (F5).", lang)}, status_code=400)

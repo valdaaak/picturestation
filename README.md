@@ -197,15 +197,24 @@ People are synchronised at every index run, every 30 minutes with the default se
 
 ## Personal galleries
 
-Photo Station had personal galleries in each user's home folder. Picturestation can run separate galleries next to the main one, each with its own users, port and database:
+Photo Station had personal galleries in each user's home folder. Picturestation serves any number of private galleries next to the main one, from the same server and port. Each private gallery has its own photo folder, users, administrators, rights, thumbnails and database. The main gallery's users have no access to it.
 
-```sh
-picturestation-instance alice 192.168.1.10:/volume1/homes/alice/Photos 8081 "Alice's photos"
+The main gallery's administrator manages them under **Settings, Galleries**:
+
+- **New gallery:** a name, a title, the photo folder, optional domains, and the first administrator with a password.
+- **Edit:** change the title, folder or domains, or turn the gallery off.
+- **Administrators:** add one or set a new password. The gallery's administrator manages its other users in that gallery's own Settings.
+- **Delete:** the gallery's database and thumbnails are moved to `galleries/.deleted`. The photos are not touched.
+
+**Addresses.** A gallery is reachable at `http://server/~name/`. In the DS photo app, enter the name in **Personal Photo Station account**. With a domain such as `alice.example.com`, create a reverse proxy in DSM from that domain to the same server and port as the main gallery. Picturestation picks the gallery by the host name.
+
+**Photo folders** must be below `PICTURESTATION_GALLERY_ROOTS`, by default `/srv/galleries` and `/mnt/galleries`, so that the web cannot open other folders of the server. For a folder on the NAS, mount it read-only below `/mnt/galleries`. For example, add an NFS rule for the `homes` share and put this in `/etc/fstab`:
+
+```
+192.168.1.10:/volume1/homes/alice/Photos /mnt/galleries/alice nfs4 ro,nofail,_netdev,x-systemd.automount 0 0
 ```
 
-The owner, here `alice`, becomes the administrator of that gallery. The password is in `/root/picturestation-alice.pass`. The main gallery's users have no access to it. Users are managed with `picturestation-user -i alice ...`.
-
-For NFS, add a rule for the `homes` share in DSM, in the same way as for `photo`. Publish each gallery under its own domain with a reverse proxy entry pointing to its port.
+All galleries run the same code. An update of Picturestation applies to all of them at once.
 
 ## Moving from Photo Station 6
 

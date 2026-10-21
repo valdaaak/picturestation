@@ -34,8 +34,9 @@ def clean_rel(rel: str) -> str:
 
 
 def abs_path(rel: str) -> str:
-    p = os.path.realpath(os.path.join(config.PHOTO_ROOT, clean_rel(rel)))
-    if p != config.PHOTO_ROOT and not p.startswith(config.PHOTO_ROOT + os.sep):
+    root = config.current().root
+    p = os.path.realpath(os.path.join(root, clean_rel(rel)))
+    if p != root and not p.startswith(root + os.sep):
         raise BadId(rel)
     return p
 

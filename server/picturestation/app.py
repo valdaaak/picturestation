@@ -344,20 +344,13 @@ def api_auth(ctx: Ctx):
             _fails.pop(ip, None)
         sid = store.new_session(u["username"])
         resp = ok(auth_data(ctx, u["username"], sid))
-        resp.set_cookie(config.SESSION_COOKIE, sid, path="/", httponly=True, samesite="lax",
-                        max_age=config.SESSION_DAYS * 86400)
-        if config.SESSION_COOKIE != "PHPSESSID" and "mozilla" not in ctx.req.headers.get("user-agent", "").lower():
-            # appka DS photo hlada sid len v cookie s menom PHPSESSID (AbsConnectionManager.getSessionId)
-            resp.set_cookie("PHPSESSID", sid, path="/", httponly=True, samesite="lax",
-                            max_age=config.SESSION_DAYS * 86400)
+        store.set_session_cookie(resp, ctx.req, sid)
         log.info("login %s from %s", u["username"], ip)
         return resp
     if m == "logout":
         store.drop_session(ctx.sid)
         resp = ok()
-        resp.delete_cookie(config.SESSION_COOKIE, path="/")
-        if config.SESSION_COOKIE != "PHPSESSID" and "mozilla" not in ctx.req.headers.get("user-agent", "").lower():
-            resp.delete_cookie("PHPSESSID", path="/")
+        store.clear_session_cookie(resp, ctx.req)
         return resp
     if m == "checkauth":
         return ok(auth_data(ctx, ctx.username, ctx.sid if ctx.username else ""))
@@ -369,7 +362,7 @@ def api_info(ctx: Ctx):
         return ok({"external_ip": ""}) if ctx.p["method"] == "getexternalip" else err(E_NO_METHOD)
     return ok({
         "version": config.PKG_VERSION, "version_string": config.PKG_VERSION_STRING,
-        "title": store.get_setting("title", config.TITLE),
+        "title": store.get_setting("title", store.default_title()),
         "hide_search": ctx.r["no_search"], "disable_timeline": ctx.r["no_timeline"],
         "home_category": "", "sort_by": "filename", "sort_direction": "asc",
         "allow_download_orig": ctx.r["download"], "allow_download_album": False, "allow_download_video": True,
@@ -926,7 +919,8 @@ def dispatch(req: Request, p: dict, sid):
     if headers:
         resp.headers.update(headers)
     if ctx.new_sid:
-        resp.set_cookie(config.SESSION_COOKIE, ctx.new_sid, path="/", httponly=True, samesite="lax",
+        g = config.current()
+        resp.set_cookie(g.cookie, ctx.new_sid, path=g.cookie_path, httponly=True, samesite="lax",
                         max_age=config.SESSION_DAYS * 86400)
     return resp
 
@@ -941,7 +935,7 @@ async def webapi(req: Request):
         elif ctype.startswith("multipart/"):
             return err(E_NO_PERM)  # upload zatial nie je (NFS len na citanie)
     # cookie (web), parameter PHPSESSID v URL a hlavicka X-SYNO-TOKEN (appka DS photo)
-    sid = req.cookies.get(config.SESSION_COOKIE) or p.get("PHPSESSID") or req.headers.get("x-syno-token") or None
+    sid = store.request_sid(req, p)
     resp = await run_in_threadpool(dispatch, req, p, sid)
     from .web_version import VERSION
     resp.headers["x-picturestation-version"] = VERSION
@@ -975,18 +969,22 @@ async def index_page(req: Request):
     lang = await run_in_threadpool(store.get_setting, "language", "auto")
     if lang not in i18n.LANGS:
         lang = "auto"
-    html = html.replace("</head>", f'<script>window.PS_VERSION="{VERSION}";window.PS_LANG="{lang}";</script>\n</head>', 1)
+    g = config.current()
+    base = json.dumps(g.base)
+    html = html.replace("</head>", f'<script>window.PS_VERSION="{VERSION}";window.PS_LANG="{lang}";'
+                                   f'window.PS_BASE={base};window.PS_MAIN={"true" if g.is_main else "false"};'
+                                   f'</script>\n</head>', 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"})
 
 
 async def photo_redirect(req: Request):
-    return RedirectResponse("/", status_code=302)
+    return RedirectResponse(config.current().base + "/", status_code=302)
 
 
 async def share_redirect(req: Request):
     """Kratky odkaz /s/<kod> -> galeria v rezime zdielania."""
     token = req.path_params["token"]
-    return RedirectResponse("/#/share/" + _quote(token), status_code=302)
+    return RedirectResponse(config.current().base + "/#/share/" + _quote(token), status_code=302)
 
 
 def _share_info(token):
@@ -1022,9 +1020,8 @@ async def lifespan(_app):
     yield
 
 
-app = Starlette(routes=[
+_routes = Starlette(routes=[
     Route("/photo/webapi/{script}", webapi, methods=["GET", "POST", "HEAD"]),
-    Route("/~{user}/photo/webapi/{script}", webapi, methods=["GET", "POST", "HEAD"]),
     Route("/", index_page),
     Route("/index.html", index_page),
     Route("/photo", photo_redirect),
@@ -1034,3 +1031,46 @@ app = Starlette(routes=[
     *admin.routes,
     Mount("/", app=WebFiles(directory=WEB_DIR, html=True), name="web"),
 ], lifespan=lifespan)
+
+
+class GalleryRouter:
+    """Picks the gallery of a request: path prefix /~name/ (stripped, so all routes work below it),
+    else the host name of a private gallery, else the main gallery."""
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.inner(scope, receive, send)
+        from . import galleries
+        path = scope["path"]
+        g = None
+        if path.startswith("/~"):
+            name, _, rest = path[2:].partition("/")
+            g = await run_in_threadpool(galleries.by_name, name, "/~" + name)
+            if g is None:
+                return await Response("Not found", status_code=404, media_type="text/plain")(scope, receive, send)
+            if not _ and not rest:
+                return await RedirectResponse(path + "/", status_code=302)(scope, receive, send)
+            prefix = "/~" + name
+            scope = dict(scope, path="/" + rest)
+            if "raw_path" in scope and scope["raw_path"]:
+                raw = scope["raw_path"]
+                scope["raw_path"] = raw[len(prefix.encode()):] if raw.startswith(prefix.encode()) else raw
+        else:
+            host = ""
+            for k, v in scope.get("headers", ()):
+                if k == b"host":
+                    host = v.decode("latin-1")
+                    break
+            if host:
+                g = await run_in_threadpool(galleries.by_host, host)
+        tok = config.use(g or config.MAIN)
+        try:
+            await self.inner(scope, receive, send)
+        finally:
+            config.reset(tok)
+
+
+app = GalleryRouter(_routes)

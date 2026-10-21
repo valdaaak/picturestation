@@ -57,6 +57,7 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     from . import __version__
     ap.add_argument("--version", action="version", version="Picturestation " + __version__)
+    ap.add_argument("--gallery", "-g", metavar="NAME", help="work in the private gallery NAME instead of the main one")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("list")
     a = sub.add_parser("useradd"); a.add_argument("name"); a.add_argument("--admin", action="store_true")
@@ -71,6 +72,12 @@ def main(argv=None):
     a = sub.add_parser("revoke"); a.add_argument("name"); a.add_argument("path")
     a = sub.add_parser("albums"); a.add_argument("path", nargs="?", default="")
     args = ap.parse_args(argv)
+    if args.gallery:
+        from . import config
+        row = store.main_db().execute("SELECT * FROM galleries WHERE name=?", (args.gallery,)).fetchone()
+        if row is None:
+            sys.exit(f"No private gallery {args.gallery}.")
+        config.use(config.private(row["name"], row["root"], row["title"]))
     db = store.db()
 
     if args.cmd == "list":

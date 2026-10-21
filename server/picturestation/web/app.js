@@ -2,7 +2,8 @@
 "use strict";
 // Webova galeria nad API Photo Station (/photo/webapi). Rovnaki pouzivatelia a prava ako appka DS photo.
 
-const API = "/photo/webapi/";
+const BASE = window.PS_BASE || "";  // "" or "/~name" for a private gallery reached by path
+const API = BASE + "/photo/webapi/";
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
@@ -287,7 +288,7 @@ async function routeShare(rest) {
   let info = shareCache[token];
   if (!info) {
     try {
-      const r = await fetch("/api/share/" + encodeURIComponent(token));
+      const r = await fetch(BASE + "/api/share/" + encodeURIComponent(token));
       info = r.ok ? await r.json() : null;
     } catch (e) { info = null; }
     if (info) shareCache[token] = info;
@@ -849,7 +850,7 @@ async function loadItemTags(it, box) {
   box.append(chips);
   if (!S.isAdmin) return;
   if (!tagNames) {
-    try { tagNames = (await (await fetch("/api/admin/tag_names", { credentials: "same-origin" })).json()).tags; } catch (e) { tagNames = []; }
+    try { tagNames = (await (await fetch(BASE + "/api/admin/tag_names", { credentials: "same-origin" })).json()).tags; } catch (e) { tagNames = []; }
   }
   const f = el("form", "tag-form");
   const inp = el("input"); inp.placeholder = t("Add tag"); inp.setAttribute("list", "tagList"); inp.maxLength = 64;
@@ -870,7 +871,7 @@ async function loadItemTags(it, box) {
 }
 
 async function adminPost(op, body) {
-  const r = await fetch("/api/admin/" + op, { method: "POST", credentials: "same-origin",
+  const r = await fetch(BASE + "/api/admin/" + op, { method: "POST", credentials: "same-origin",
     headers: { "Content-Type": "application/json", "X-Lang": LANG }, body: JSON.stringify(body) });
   if (!r.ok) { alert(((await r.json().catch(() => ({}))).error) || t("Error")); return false; }
   return true;
@@ -893,7 +894,7 @@ async function loadComments(it, box) {
       x.type = "button"; x.title = t("Delete comment");
       x.onclick = async () => {
         if (!confirm(t("Delete the comment?"))) return;
-        const r = await fetch("/api/admin/comment_delete", { method: "POST", credentials: "same-origin",
+        const r = await fetch(BASE + "/api/admin/comment_delete", { method: "POST", credentials: "same-origin",
           headers: { "Content-Type": "application/json", "X-Lang": LANG }, body: JSON.stringify({ id: c.id }) });
         if (r.ok) loadComments(it, box);
       };

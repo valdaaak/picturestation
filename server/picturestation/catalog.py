@@ -11,19 +11,17 @@ import posixpath
 import threading
 import time
 
-from . import geo, store
+from . import config, geo, store
 
-_snap = None
-_snap_t = 0.0
+# per gallery (config.current().name): library list and when it was built
+_snaps = {}             # gallery -> (rows, time)
 _snap_lock = threading.Lock()
+_snap_rebuilding = set()
 SNAP_TTL = 60
 
 
-_snap_rebuilding = False
-
-
 def _build_snapshot():
-    global _snap, _snap_t
+    name = config.current().name
     rows = []
     for r in store.db().execute("SELECT path, kind, mtime, size, data FROM meta"):
         try:
@@ -31,39 +29,41 @@ def _build_snapshot():
         except ValueError:
             continue
     with _snap_lock:
-        _snap, _snap_t = rows, time.time()
+        _snaps[name] = (rows, time.time())
     return rows
 
 
-def _rebuild_in_background():
-    global _snap_rebuilding
+def _rebuild_in_background(name):
     try:
         _build_snapshot()
     finally:
-        _snap_rebuilding = False
+        with _snap_lock:
+            _snap_rebuilding.discard(name)
 
 
 def snapshot():
-    """Vsetky zaindexovane subory: zoznam (rel, kind, mtime, size, meta).
+    """Vsetky zaindexovane subory aktualnej galerie: zoznam (rel, kind, mtime, size, meta).
     After SNAP_TTL seconds the list is rebuilt in the background and requests keep using the previous one
     (about a second for 70,000 files), so nobody waits; only the very first call builds it directly."""
-    global _snap_rebuilding
+    name = config.current().name
     with _snap_lock:
-        snap, age = _snap, time.time() - _snap_t
-        start = snap is not None and age >= SNAP_TTL and not _snap_rebuilding
+        snap, t = _snaps.get(name, (None, 0.0))
+        start = snap is not None and time.time() - t >= SNAP_TTL and name not in _snap_rebuilding
         if start:
-            _snap_rebuilding = True
+            _snap_rebuilding.add(name)
     if start:
-        threading.Thread(target=_rebuild_in_background, name="snapshot", daemon=True).start()
+        config.in_thread(_rebuild_in_background, name).start()
     return snap if snap is not None else _build_snapshot()
 
 
 def invalidate():
-    global _snap
+    """Forget the library list and collection covers of the current gallery."""
+    name = config.current().name
     with _snap_lock:
-        _snap = None
+        _snaps.pop(name, None)
     with _covers_lock:
-        _covers.clear()
+        for k in [k for k in _covers if k[0][0] == name]:
+            del _covers[k]
 
 
 # Covers of tags, places, people and smart albums: remembered when a list is built (it knows them anyway), so the
@@ -81,7 +81,7 @@ def clear_covers():
 def _perm_key(perm):
     k = getattr(perm, "_cover_key", None)
     if k is None:
-        k = (perm.username, perm.admin, tuple(sorted(perm.rules)), frozenset(perm.unlocked),
+        k = (config.current().name, perm.username, perm.admin, tuple(sorted(perm.rules)), frozenset(perm.unlocked),
              frozenset(perm.forced), frozenset(perm.items), frozenset(perm.pw_albums),
              getattr(perm, "root_public", None))
         perm._cover_key = k
@@ -345,18 +345,18 @@ def list_smart(perm):
     return out
 
 
-_snap_idx = None
-_snap_idx_src = None
+_snap_idx = {}   # gallery -> (snapshot it was built from, index)
 
 
 def snapshot_index() -> dict:
     """rel -> (kind, mtime, size, meta) zo snapshotu (rychle hladanie podla cesty)."""
-    global _snap_idx, _snap_idx_src
+    name = config.current().name
     s = snapshot()
-    if _snap_idx_src is not s:
-        _snap_idx = {r[0]: r[1:] for r in s}
-        _snap_idx_src = s
-    return _snap_idx
+    src, idx = _snap_idx.get(name, (None, None))
+    if src is not s:
+        idx = {r[0]: r[1:] for r in s}
+        _snap_idx[name] = (s, idx)
+    return idx
 
 
 def _newest_of_paths(paths, perm):

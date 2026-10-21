@@ -330,7 +330,35 @@ const I18N_SK = {
   "Only from album:": "Len z albumu:",
   "change": "zmeniť",
   "Delete the smart album? The photos stay.": "Zmazať chytrý album? Fotky ostanú.",
-  "Smart album saved.": "Chytrý album uložený."
+  "Smart album saved.": "Chytrý album uložený.",
+  "Galleries": "Galérie",
+  "Private galleries are separate photo archives with their own users and administrators. They run on this server at the address /~name/ or at their own domain. The main gallery's users have no access to them.":
+    "Súkromné galérie sú samostatné fotoarchívy s vlastnými používateľmi a správcami. Bežia na tomto serveri na adrese /~meno/ alebo na vlastnej doméne. Používatelia hlavnej galérie do nich prístup nemajú.",
+  "New gallery": "Nová galéria",
+  "Name (address /~name/)": "Meno (adresa /~meno/)",
+  "Photo folder": "Priečinok s fotkami",
+  "Only inside: {roots}. Read-only access is enough.": "Len vnútri: {roots}. Stačí prístup na čítanie.",
+  "Domains (optional, separated by spaces)": "Domény (nepovinné, oddelené medzerou)",
+  "Administrator": "Správca",
+  "Create": "Vytvoriť",
+  "Gallery created.": "Galéria vytvorená.",
+  "No private galleries yet.": "Zatiaľ žiadne súkromné galérie.",
+  "off": "vypnutá",
+  "on": "zapnutá",
+  "folder not available": "priečinok nedostupný",
+  "Remove administrator": "Odobrať správcu",
+  "Remove administrator {name}?": "Odobrať správcu {name}?",
+  "Add administrator or new password": "Pridať správcu alebo nové heslo",
+  "{n} indexed files": ["{n} zaindexovaný súbor", "{n} zaindexované súbory", "{n} zaindexovaných súborov"],
+  "Administrators of this gallery:": "Správcovia tejto galérie:",
+  "For the domain, create a reverse proxy in DSM: HTTPS {host} to this server on port 80 (the same target as the main gallery), with the header X-Forwarded-For and a certificate.":
+    "Pre doménu vytvor v DSM reverse proxy: HTTPS {host} na tento server, port 80 (rovnaký cieľ ako hlavná galéria), s hlavičkou X-Forwarded-For a certifikátom.",
+  "Gallery {name}": "Galéria {name}",
+  "Delete gallery {name}? Its users and settings are moved aside, the photos stay.":
+    "Zmazať galériu {name}? Jej používatelia a nastavenia sa odložia bokom, fotky ostanú.",
+  "Administrator of gallery {name}": "Správca galérie {name}",
+  "An existing administrator gets the new password, a new name becomes an administrator.":
+    "Existujúci správca dostane nové heslo, nové meno sa stane správcom."
 };
 
 function storedLang() {

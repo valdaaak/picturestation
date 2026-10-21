@@ -23,8 +23,8 @@ _ISO6709 = re.compile(r"^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)")
 Image.MAX_IMAGE_PIXELS = 250_000_000
 
 _thumb_sem = threading.BoundedSemaphore(config.THUMB_WORKERS)
-_dir_cache = {}      # rel -> (dir_mtime, dirs, files)
-_cover_cache = {}    # (rel, username) -> (dir_mtime, cover_rel|None)
+_dir_cache = {}      # (gallery, rel) -> (dir_mtime, dirs, files)
+_cover_cache = {}    # (gallery, rel, perm...) -> (dir_mtime, cover_rel|None, time)
 _lock = threading.Lock()
 FFMPEG = shutil.which("ffmpeg")
 FFPROBE = shutil.which("ffprobe")
@@ -58,7 +58,7 @@ def list_dir(rel: str):
     p = ids.abs_path(rel)
     st = os.stat(p)
     with _lock:
-        c = _dir_cache.get(rel)
+        c = _dir_cache.get((config.current().name, rel))
         if c and c[0] == st.st_mtime:
             return c[1], c[2]
     dirs, files = [], []
@@ -82,7 +82,7 @@ def list_dir(rel: str):
     dirs.sort(key=lambda d: d["name"].lower())
     files.sort(key=lambda f: f["name"].lower())
     with _lock:
-        _dir_cache[rel] = (st.st_mtime, dirs, files)
+        _dir_cache[(config.current().name, rel)] = (st.st_mtime, dirs, files)
     return dirs, files
 
 
@@ -367,7 +367,7 @@ def web_video(rel: str):
 
 def _cache_path(rel: str, size: str) -> str:
     h = hashlib.sha1(rel.encode("utf-8")).hexdigest()
-    return os.path.join(config.THUMB_CACHE, h[:2], f"{h}_{size}.jpg")
+    return os.path.join(config.current().thumb_cache, h[:2], f"{h}_{size}.jpg")
 
 
 def _fresh(out: str, src: str) -> bool:
@@ -503,7 +503,8 @@ def cover(rel: str, perm, depth: int = 0):
         st = os.stat(ids.abs_path(rel))
     except OSError:
         return None
-    key = (rel, perm.username, perm.admin, frozenset(perm.unlocked), frozenset(perm.rules), frozenset(perm.forced))
+    key = (config.current().name, rel, perm.username, perm.admin, frozenset(perm.unlocked), frozenset(perm.rules),
+           frozenset(perm.forced))
     with _lock:
         c = _cover_cache.get(key)
         # platnost: kym sa nezmeni priecinok a najviac COVER_TTL (titulka v @eaDir sa moze zmenit zvonku)
@@ -544,12 +545,13 @@ def index_once():
     old = {r["path"]: r["size"] for r in db.execute("SELECT path, size FROM last_seen")}
     in_meta = [r["path"] for r in db.execute("SELECT path FROM meta")]
     seen = {}
-    for root, dirs, _files in os.walk(config.PHOTO_ROOT, onerror=lambda e: None):
+    photo_root = config.current().root
+    for root, dirs, _files in os.walk(photo_root, onerror=lambda e: None):
         dirs[:] = sorted(d for d in dirs if not d.startswith((".", "@", "#")))
-        relroot = os.path.relpath(root, config.PHOTO_ROOT).replace(os.sep, "/")
+        relroot = os.path.relpath(root, photo_root).replace(os.sep, "/")
         relroot = "" if relroot == "." else relroot
         try:
-            _dir_cache.pop(relroot, None)  # vzdy cerstvy vypis
+            _dir_cache.pop((config.current().name, relroot), None)  # vzdy cerstvy vypis
             _, media = list_dir(relroot)
         except (OSError, ids.BadId):
             errors += 1
@@ -598,19 +600,41 @@ def start_indexer():
         return
 
     def loop():
-        # warm-up: the library list and place names are ready before the first visitor asks for them
+        from . import catalog, galleries
+        # warm-up: the library lists and place names are ready before the first visitor asks for them
         try:
-            from . import catalog
-            catalog.snapshot()
             if geo.available():
                 geo._load()
+            for g in [config.MAIN] + galleries.all_enabled():
+                tok = config.use(g)
+                try:
+                    catalog.snapshot()
+                finally:
+                    config.reset(tok)
         except Exception:
             log.exception("warm-up failed")
         while True:
-            try:
-                index_once()
-            except Exception:
-                log.exception("index failed")
+            for g in [config.MAIN] + galleries.all_enabled():
+                index_gallery(g)
             time.sleep(config.INDEX_INTERVAL)
 
     threading.Thread(target=loop, name="indexer", daemon=True).start()
+
+
+_index_locks = {}
+
+
+def index_gallery(g):
+    """One index pass of a gallery (skipped when another pass of the same gallery is running)."""
+    with _lock:
+        lk = _index_locks.setdefault(g.name, threading.Lock())
+    if not lk.acquire(blocking=False):
+        return
+    tok = config.use(g)
+    try:
+        index_once()
+    except Exception:
+        log.exception("index failed (%s)", g.name or "main")
+    finally:
+        config.reset(tok)
+        lk.release()

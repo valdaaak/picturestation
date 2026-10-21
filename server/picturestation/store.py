@@ -154,6 +154,15 @@ CREATE TABLE IF NOT EXISTS unlocks (
     path     TEXT NOT NULL,
     PRIMARY KEY (sid, path)
 );
+-- private galleries (used in the main gallery's database only)
+CREATE TABLE IF NOT EXISTS galleries (
+    name      TEXT PRIMARY KEY,
+    title     TEXT NOT NULL DEFAULT '',
+    root      TEXT NOT NULL,
+    hostnames TEXT NOT NULL DEFAULT '',
+    enabled   INTEGER NOT NULL DEFAULT 1,
+    created   INTEGER NOT NULL
+);
 """
 
 
@@ -199,10 +208,15 @@ def flags() -> dict:
 
 
 def db() -> sqlite3.Connection:
-    con = getattr(_local, "con", None)
+    """Database of the current gallery (one connection per gallery and thread)."""
+    g = config.current()
+    cons = getattr(_local, "cons", None)
+    if cons is None:
+        cons = _local.cons = {}
+    con = cons.get(g.db_path)
     if con is None:
-        os.makedirs(config.DATA_DIR, exist_ok=True)
-        con = sqlite3.connect(config.DB_PATH, timeout=30, isolation_level=None)
+        os.makedirs(g.data_dir, exist_ok=True)
+        con = sqlite3.connect(g.db_path, timeout=30, isolation_level=None)
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
@@ -219,8 +233,53 @@ def db() -> sqlite3.Connection:
         for col in ("face_key", "cover_path"):
             if col not in pcols:
                 con.execute(f"ALTER TABLE people ADD COLUMN {col} TEXT")
-        _local.con = con
+        cons[g.db_path] = con
     return con
+
+
+def _is_app(req) -> bool:
+    """The DS photo app (User-Agent Synology-...), not a browser."""
+    return "mozilla" not in req.headers.get("user-agent", "").lower()
+
+
+def request_sid(req, params=None):
+    """Session id of a request in the current gallery: its cookie (web), for the app also PHPSESSID
+    (cookie, URL parameter) and the X-SYNO-TOKEN header."""
+    g = config.current()
+    sid = req.cookies.get(g.cookie)
+    if not sid and g.cookie != "PHPSESSID" and _is_app(req):
+        sid = req.cookies.get("PHPSESSID")
+    return sid or (params or {}).get("PHPSESSID") or req.headers.get("x-syno-token") or None
+
+
+def set_session_cookie(resp, req, sid):
+    g = config.current()
+    kw = dict(path=g.cookie_path, httponly=True, samesite="lax", max_age=config.SESSION_DAYS * 86400)
+    resp.set_cookie(g.cookie, sid, **kw)
+    if g.cookie != "PHPSESSID" and _is_app(req):
+        # appka DS photo hlada sid len v cookie s menom PHPSESSID (AbsConnectionManager.getSessionId)
+        resp.set_cookie("PHPSESSID", sid, **kw)
+
+
+def clear_session_cookie(resp, req):
+    g = config.current()
+    resp.delete_cookie(g.cookie, path=g.cookie_path)
+    if g.cookie != "PHPSESSID" and _is_app(req):
+        resp.delete_cookie("PHPSESSID", path=g.cookie_path)
+
+
+def default_title() -> str:
+    g = config.current()
+    return g.title or (config.TITLE if g.is_main else g.name)
+
+
+def main_db() -> sqlite3.Connection:
+    """Database of the main gallery (the list of private galleries lives there)."""
+    tok = config.use(config.MAIN)
+    try:
+        return db()
+    finally:
+        config.reset(tok)
 
 
 # ---------- hesla ----------
@@ -254,17 +313,18 @@ def authenticate(username: str, pw: str):
     return u
 
 
-_exists_cache = {}  # cesta -> (cas, existuje)
+_exists_cache = {}  # (koren galerie, cesta) -> (cas, existuje)
 
 
 def _dir_exists(rel: str) -> bool:
     """Existuje album na disku? Cache 60 s (kontroluje sa len pri zhode mena, teda zriedka)."""
     now = time.time()
-    c = _exists_cache.get(rel)
+    root = config.current().root
+    c = _exists_cache.get((root, rel))
     if c and now - c[0] < 60:
         return c[1]
-    ok = os.path.isdir(os.path.join(config.PHOTO_ROOT, rel))
-    _exists_cache[rel] = (now, ok)
+    ok = os.path.isdir(os.path.join(root, rel))
+    _exists_cache[(root, rel)] = (now, ok)
     return ok
 
 

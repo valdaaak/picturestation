@@ -11,7 +11,7 @@ const Admin = (() => {
       ? { credentials: "same-origin", headers: { "X-Lang": LANG } }
       : { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Lang": LANG },
           body: JSON.stringify(body) };
-    const url = "/api/admin/" + op + (body === undefined && op === "albums" ? "" : "");
+    const url = BASE + "/api/admin/" + op + (body === undefined && op === "albums" ? "" : "");
     const r = await fetch(url, opt);
     checkVersion(r);
     const j = await r.json().catch(() => ({}));
@@ -19,7 +19,7 @@ const Admin = (() => {
     return j;
   }
   async function albumsOf(path) {
-    const r = await fetch("/api/admin/albums?path=" + encodeURIComponent(path), { credentials: "same-origin", headers: { "X-Lang": LANG } });
+    const r = await fetch(BASE + "/api/admin/albums?path=" + encodeURIComponent(path), { credentials: "same-origin", headers: { "X-Lang": LANG } });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || t("Error"));
     return j;
@@ -90,19 +90,19 @@ const Admin = (() => {
     const allow = grants.filter((g) => !g.deny), deny = grants.filter((g) => g.deny);
     if (!allow.length) ul.append(h("li", { class: "muted" }, type === "guest" ? t("Nothing is visible without signing in.") : t("No albums.")));
     // pri vela pravidlach (napr. prenos z Photo Station) len suhrn; podrobnosti v editore
-    const many = grants.length > 15;
+    const many = grants.length > 40;
     if (many) {
       ul.append(h("li", { class: "muted" }, t("{a} allowed albums, {d} excluded.", { a: allow.length, d: deny.length }) + " " +
         t("Details in the access editor.")));
     }
-    for (const g of many ? allow.slice(0, 15) : [...allow, ...deny]) {
+    for (const g of many ? allow.slice(0, 40) : [...allow, ...deny]) {
       ul.append(h("li", { class: g.deny ? "deny" : "" },
         h("span", { class: "path" }, pathLabel(g.path)),
         g.deny ? h("span", { class: "tag bad" }, t("excluded ")) : null,
         h("button", { class: "x", type: "button", title: g.deny ? t("Cancel exclusion") : t("Remove access"),
           onclick: () => act("revoke", { type, name, path: g.path }, g.deny ? t("Exclusion cancelled.") : t("Access removed.")) }, "×")));
     }
-    if (many && allow.length > 15) ul.append(h("li", { class: "muted" }, t("… and {n} more allowed", { n: allow.length - 15 })));
+    if (many && allow.length > 40) ul.append(h("li", { class: "muted" }, t("… and {n} more allowed", { n: allow.length - 40 })));
     ul.append(h("li", null,
       h("button", { class: "primary small", type: "button", onclick: () => accessEditor(type, name) }, t("Edit access"))));
     return ul;
@@ -216,11 +216,14 @@ const Admin = (() => {
   function draw() {
     const tabs = [["users", t("Users")], ["groups", t("Groups")], ["guest", t("Without signing in")],
       ["shares", t("Shares")], ["moves", t("Moves")], ["general", t("General")]];
+    if (st.is_main) tabs.push(["galleries", t("Galleries")]);
+    if (tab === "galleries" && !st.is_main) tab = "users";
     const nav = h("nav", { class: "adm-tabs" }, tabs.map(([k, label]) =>
       h("button", { type: "button", class: k === tab ? "on" : "", onclick: () => { tab = k; draw(); } }, label)));
     const body = { users: drawUsers, groups: drawGroups, guest: drawGuest, general: drawGeneral,
       shares: () => { const w = h("div", { class: "adm-body" }); drawShares(w); return w; },
-      moves: () => { const w = h("div", { class: "adm-body" }); drawMoves(w); return w; } }[tab]();
+      moves: () => { const w = h("div", { class: "adm-body" }); drawMoves(w); return w; },
+      galleries: () => { const w = h("div", { class: "adm-body" }); drawGalleries(w); return w; } }[tab]();
     root().replaceChildren(h("h2", { class: "adm-h" }, t("Settings")), nav, body);
   }
 
@@ -460,7 +463,7 @@ const Admin = (() => {
   async function editAlbum(path, onSaved) {
     let a;
     try {
-      const r = await fetch("/api/admin/album_get?path=" + encodeURIComponent(path), { credentials: "same-origin", headers: { "X-Lang": LANG } });
+      const r = await fetch(BASE + "/api/admin/album_get?path=" + encodeURIComponent(path), { credentials: "same-origin", headers: { "X-Lang": LANG } });
       a = await r.json();
       if (!r.ok) throw new Error(a.error || t("Error"));
     } catch (e) { toast(e.message, true); return; }
@@ -515,7 +518,7 @@ const Admin = (() => {
   }
 
   // ---------- zdielanie ----------
-  const shareUrl = (token) => location.origin + "/s/" + token;
+  const shareUrl = (token) => location.origin + BASE + "/s/" + token;
   const fmtDay = (ts) => new Date(ts * 1000).toLocaleDateString(LOCALE());
 
   function copyBox(url) {
@@ -578,6 +581,104 @@ const Admin = (() => {
           } }, t("Cancel")))),
         s.expired ? null : copyBox(shareUrl(s.token))));
     }
+  }
+
+  // ---------- sukromne galerie (len v hlavnej galerii) ----------
+  async function drawGalleries(wrap) {
+    let d;
+    try { d = await req("galleries_list"); } catch (e) { wrap.append(h("p", { class: "err" }, e.message)); return; }
+    const roots = d.roots.join(", ");
+    wrap.append(h("p", { class: "muted" }, t("Private galleries are separate photo archives with their own users and "
+      + "administrators. They run on this server at the address /~name/ or at their own domain. The main gallery's "
+      + "users have no access to them.")));
+    const f = h("form", { class: "card adm-form", onsubmit: async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      if (await act("gallery_create", { name: fd.get("name"), title: fd.get("title"), root: fd.get("root"),
+        hostnames: fd.get("hostnames"), admin: fd.get("admin"), password: fd.get("password") },
+      t("Gallery created."))) e.target.reset();
+    } },
+      h("strong", null, t("New gallery")),
+      h("div", { class: "two" },
+        h("label", null, t("Name (address /~name/)"), h("input", { name: "name", required: true, pattern: "[a-z0-9][a-z0-9-]{0,30}",
+          autocomplete: "off" })),
+        h("label", null, t("Title"), h("input", { name: "title" }))),
+      h("label", null, t("Photo folder"), h("input", { name: "root", required: true, placeholder: d.roots[0] + "/…" })),
+      h("p", { class: "muted" }, t("Only inside: {roots}. Read-only access is enough.", { roots })),
+      h("label", null, t("Domains (optional, separated by spaces)"), h("input", { name: "hostnames",
+        placeholder: "photos.example.com" })),
+      h("div", { class: "two" },
+        h("label", null, t("Administrator"), h("input", { name: "admin", required: true, autocomplete: "off" })),
+        h("label", null, t("Password (min. 8 characters)"), h("input", { name: "password", type: "password",
+          required: true, minlength: "8", autocomplete: "new-password" }))),
+      h("div", { class: "row" }, h("span", { class: "grow" }), h("button", { type: "submit", class: "primary" }, t("Create"))));
+    wrap.append(f);
+    if (!d.galleries.length) wrap.append(h("p", { class: "muted" }, t("No private galleries yet.")));
+    for (const g of d.galleries) {
+      const flags = [!g.enabled && h("span", { class: "tag bad" }, t("off")),
+        !g.root_ok && h("span", { class: "tag bad" }, t("folder not available"))];
+      const admins = h("ul", { class: "grants" }, g.admins.map((a) => h("li", null, h("span", { class: "path" }, a),
+        h("button", { class: "x", type: "button", title: t("Remove administrator"), onclick: () => {
+          if (confirm(t("Remove administrator {name}?", { name: a })))
+            act("gallery_admin_remove", { name: g.name, user: a }, t("Saved."));
+        } }, "×"))),
+        h("li", null, h("button", { class: "primary small", type: "button", onclick: () => galleryAdmin(g) },
+          t("Add administrator or new password"))));
+      wrap.append(h("section", { class: "card" + (g.enabled ? "" : " off") },
+        h("div", { class: "card-h" },
+          h("div", null, h("strong", null, g.title || g.name), " ", flags,
+            h("div", { class: "muted" }, h("a", { href: g.path, target: "_blank", rel: "noopener" }, location.origin + g.path),
+              g.hostnames.length ? " · " + g.hostnames.join(", ") : ""),
+            h("div", { class: "muted" }, g.root + (g.files != null ? " · " + tn(g.files, "{n} indexed file", "{n} indexed files") : ""))),
+          h("div", { class: "card-a" }, h("button", { class: "link", type: "button", onclick: () => editGallery(g) }, t("Edit")))),
+        h("p", { class: "muted" }, t("Administrators of this gallery:")), admins,
+        g.hostnames.length ? h("p", { class: "muted" }, t("For the domain, create a reverse proxy in DSM: HTTPS {host} to "
+          + "this server on port 80 (the same target as the main gallery), with the header X-Forwarded-For and a "
+          + "certificate.", { host: g.hostnames.join(", ") })) : null));
+    }
+  }
+
+  function editGallery(g) {
+    const f = h("form", { method: "dialog", class: "adm-form" },
+      h("h3", null, t("Gallery {name}", { name: g.name })),
+      h("label", null, t("Title"), h("input", { name: "title", value: g.title })),
+      h("label", null, t("Photo folder"), h("input", { name: "root", value: g.root, required: true })),
+      h("label", null, t("Domains (optional, separated by spaces)"), h("input", { name: "hostnames", value: g.hostnames.join(" ") })),
+      h("label", { class: "chk" }, h("input", { type: "checkbox", name: "enabled", checked: g.enabled }), t("on")),
+      h("div", { class: "row" },
+        h("button", { type: "button", class: "link danger", onclick: async () => {
+          if (!confirm(t("Delete gallery {name}? Its users and settings are moved aside, the photos stay.", { name: g.name }))) return;
+          if (await act("gallery_delete", { name: g.name }, t("Deleted."))) dlg.close();
+        } }, t("Delete")),
+        h("span", { class: "grow" }),
+        h("button", { type: "button", class: "link", onclick: () => dlg.close() }, t("Cancel")),
+        h("button", { type: "submit", class: "primary" }, t("Save"))));
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(f);
+      if (await act("gallery_update", { name: g.name, title: fd.get("title"), root: fd.get("root"),
+        hostnames: fd.get("hostnames"), enabled: fd.get("enabled") === "on" }, t("Saved."))) dlg.close();
+    });
+    const dlg = openDlg(f);
+  }
+
+  function galleryAdmin(g) {
+    const f = h("form", { method: "dialog", class: "adm-form" },
+      h("h3", null, t("Administrator of gallery {name}", { name: g.name })),
+      h("p", { class: "muted" }, t("An existing administrator gets the new password, a new name becomes an administrator.")),
+      h("label", null, t("Name"), h("input", { name: "user", required: true, autocomplete: "off" })),
+      h("label", null, t("Password (min. 8 characters)"), h("input", { name: "password", type: "password", required: true,
+        minlength: "8", autocomplete: "new-password" })),
+      h("div", { class: "row" }, h("span", { class: "grow" }),
+        h("button", { type: "button", class: "link", onclick: () => dlg.close() }, t("Cancel")),
+        h("button", { type: "submit", class: "primary" }, t("Save"))));
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fd = new FormData(f);
+      if (await act("gallery_admin_set", { name: g.name, user: fd.get("user"), password: fd.get("password") }, t("Saved.")))
+        dlg.close();
+    });
+    const dlg = openDlg(f);
   }
 
   // ---------- presuny albumov ----------
