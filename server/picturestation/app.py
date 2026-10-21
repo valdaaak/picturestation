@@ -969,9 +969,11 @@ async def index_page(req: Request):
     lang = await run_in_threadpool(store.get_setting, "language", "auto")
     if lang not in i18n.LANGS:
         lang = "auto"
+    from . import __version__
     g = config.current()
     base = json.dumps(g.base)
     html = html.replace("</head>", f'<script>window.PS_VERSION="{VERSION}";window.PS_LANG="{lang}";'
+                                   f'window.PS_RELEASE="{__version__}";'
                                    f'window.PS_BASE={base};window.PS_MAIN={"true" if g.is_main else "false"};'
                                    f'</script>\n</head>', 1)
     return HTMLResponse(html, headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"})

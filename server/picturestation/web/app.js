@@ -986,6 +986,11 @@ async function loadInfo() {
   } catch (e) { /* nic */ }
 }
 
+{
+  const y = new Date().getFullYear();
+  $("siteFoot").textContent = `Picturestation ${window.PS_RELEASE || ""} · © ${y > 2026 ? "2026–" + y : 2026} Valderama`;
+}
+
 (async function init() {
   await loadInfo();
   try {

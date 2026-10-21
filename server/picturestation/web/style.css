@@ -285,3 +285,6 @@ dialog .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6
 .album .cover.collage.n2 { grid-template-rows: minmax(0, 1fr); }
 .album .cover.collage.n3 img:first-child { grid-row: 1 / span 2; }
 .albums.coll-tiles { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+
+/* footer: version and author, on every page of every gallery */
+.site-foot { text-align: center; color: var(--muted); font-size: 12px; padding: 28px 16px calc(20px + env(safe-area-inset-bottom)); }
