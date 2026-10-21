@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# User management inside the container:  docker exec -it picturestation picturestation-user list
+if [ "$(id -u)" = 0 ]; then
+  exec setpriv --reuid="${PUID:-1000}" --regid="${PGID:-1000}" --init-groups python3 -m picturestation.cli "$@"
+fi
+exec python3 -m picturestation.cli "$@"

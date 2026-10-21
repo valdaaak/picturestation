@@ -1,0 +1,23 @@
+# Picturestation with Docker Compose (also usable as a Synology Container Manager project).
+services:
+  picturestation:
+    image: ghcr.io/valdaaak/picturestation:latest
+    # build: .                      # or build the image from this folder
+    container_name: picturestation
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /volume1/photo:/photos:ro                  # your photos, read-only
+      - /volume1/docker/picturestation:/data       # database, thumbnails, place names
+    environment:
+      PUID: "1026"                                 # owner of the data folder (id of a DSM user)
+      PGID: "100"
+      PICTURESTATION_TITLE: "Photos"
+      # PICTURESTATION_ADMIN_PASSWORD: "change-me" # otherwise a random password is printed in the log
+      # behind the DSM reverse proxy: trust its X-Forwarded-For (address of the Docker gateway)
+      # PICTURESTATION_TRUSTED_PROXIES: "172.17.0.1"
+      # people from Synology Photos, see README
+      # SYNO_URL: "https://nas.example.com:5001"
+      # SYNO_USER: "picturestation-sync"
+      # SYNO_PASS_FILE: "/data/synology.pass"
