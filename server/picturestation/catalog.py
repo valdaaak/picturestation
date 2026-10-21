@@ -19,12 +19,11 @@ _snap_lock = threading.Lock()
 SNAP_TTL = 60
 
 
-def snapshot():
-    """Vsetky zaindexovane subory: zoznam (rel, kind, mtime, size, meta). Cache na SNAP_TTL sekund."""
+_snap_rebuilding = False
+
+
+def _build_snapshot():
     global _snap, _snap_t
-    with _snap_lock:
-        if _snap is not None and time.time() - _snap_t < SNAP_TTL:
-            return _snap
     rows = []
     for r in store.db().execute("SELECT path, kind, mtime, size, data FROM meta"):
         try:
@@ -34,6 +33,29 @@ def snapshot():
     with _snap_lock:
         _snap, _snap_t = rows, time.time()
     return rows
+
+
+def _rebuild_in_background():
+    global _snap_rebuilding
+    try:
+        _build_snapshot()
+    finally:
+        _snap_rebuilding = False
+
+
+def snapshot():
+    """Vsetky zaindexovane subory: zoznam (rel, kind, mtime, size, meta).
+    After SNAP_TTL seconds the list is rebuilt in the background and requests keep using the previous one
+    (about a second for 70,000 files), so nobody waits; only the very first call builds it directly."""
+    global _snap_rebuilding
+    with _snap_lock:
+        snap, age = _snap, time.time() - _snap_t
+        start = snap is not None and age >= SNAP_TTL and not _snap_rebuilding
+        if start:
+            _snap_rebuilding = True
+    if start:
+        threading.Thread(target=_rebuild_in_background, name="snapshot", daemon=True).start()
+    return snap if snap is not None else _build_snapshot()
 
 
 def invalidate():

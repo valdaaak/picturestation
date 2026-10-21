@@ -598,6 +598,14 @@ def start_indexer():
         return
 
     def loop():
+        # warm-up: the library list and place names are ready before the first visitor asks for them
+        try:
+            from . import catalog
+            catalog.snapshot()
+            if geo.available():
+                geo._load()
+        except Exception:
+            log.exception("warm-up failed")
         while True:
             try:
                 index_once()
