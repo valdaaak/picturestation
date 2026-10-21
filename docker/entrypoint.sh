@@ -39,12 +39,12 @@ fi
 # small villages for the countries in PICTURESTATION_GEONAMES_COUNTRIES (e.g. SK,CZ), populated places only
 for CC in $(printf '%s' "${PICTURESTATION_GEONAMES_COUNTRIES:-}" | tr 'a-z,' 'A-Z '); do
   case "$CC" in [A-Z][A-Z]) ;; *) echo "skipping bad country code: $CC" >&2; continue ;; esac
-  [ -s "$G/$CC.txt" ] && continue
+  [ -s "$G/$CC.txt" ] && grep -q "	ADM3	" "$G/$CC.txt" && continue
   echo "downloading GeoNames villages $CC (once)"
   mkdir -p "$G.tmp"
   if wget -q -O "$G.tmp/$CC.zip" "https://download.geonames.org/export/dump/$CC.zip" \
      && unzip -o -q "$G.tmp/$CC.zip" "$CC.txt" -d "$G.tmp"; then
-    awk -F'\t' '$7 == "P"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
+    awk -F'\t' '$7 == "P" || $8 == "ADM3"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
   else
     echo "warning: download of $CC failed" >&2
   fi

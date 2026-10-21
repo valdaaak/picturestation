@@ -94,11 +94,12 @@ fi
 COUNTRIES=$(sed -n 's/^PICTURESTATION_GEONAMES_COUNTRIES=//p' "$ENVF" | tail -n 1 | tr 'a-z,' 'A-Z ')
 for CC in $COUNTRIES; do
   case "$CC" in [A-Z][A-Z]) ;; *) echo "skipping bad country code: $CC" >&2; continue ;; esac
-  [ -s "$G/$CC.txt" ] && continue
+  # older files without municipalities (ADM3) are downloaded again
+  [ -s "$G/$CC.txt" ] && grep -q "	ADM3	" "$G/$CC.txt" && continue
   echo "== GeoNames villages $CC"
   if wget -q -O "$G/$CC.zip" "https://download.geonames.org/export/dump/$CC.zip" \
      && unzip -o -q "$G/$CC.zip" "$CC.txt" -d "$G.tmp"; then
-    awk -F'\t' '$7 == "P"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
+    awk -F'\t' '$7 == "P" || $8 == "ADM3"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
     chown "$U:$U" "$G/$CC.txt"
   else
     echo "warning: download of $CC failed" >&2

@@ -62,21 +62,43 @@ def signature() -> str:
     return f"{MAX_KM}|" + ",".join(parts)
 
 
-def _read(path, grid, seen, full_dump):
+def _add(grid, c, name):
+    try:
+        lat, lon = float(c[4]), float(c[5])
+    except ValueError:
+        return False
+    grid.setdefault((int(math.floor(lat)), int(math.floor(lon))), []).append((lat, lon, name, c[8]))
+    return True
+
+
+def _read_cities(path, grid, skip_cc):
+    """cities500: towns and villages over 500 inhabitants, except countries that have a full dump."""
     n = 0
     with open(path, encoding="utf-8") as fh:
         for line in fh:
             c = line.rstrip("\r\n").split("\t")
-            if len(c) < 9 or c[0] in seen:
+            if len(c) > 8 and c[8] not in skip_cc and _add(grid, c, c[1]):
+                n += 1
+    return n
+
+
+def _read_country(path, grid):
+    """Full country dump: every populated place, named after its municipality (ADM3, e.g. a Slovak obec),
+    so that a settlement such as Misuty shows as Donovaly."""
+    rows, municipality = [], {}
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            c = line.rstrip("\r\n").split("\t")
+            if len(c) < 13:
                 continue
-            if full_dump and (c[6] != "P" or c[7] not in PLACE_CODES):
-                continue
-            try:
-                lat, lon = float(c[4]), float(c[5])
-            except ValueError:
-                continue
-            seen.add(c[0])
-            grid.setdefault((int(math.floor(lat)), int(math.floor(lon))), []).append((lat, lon, c[1], c[8]))
+            if c[6] == "A" and c[7] == "ADM3":
+                municipality[(c[10], c[11], c[12])] = c[1]
+            elif c[6] == "P" and c[7] in PLACE_CODES:
+                rows.append(c)
+    n = 0
+    for c in rows:
+        name = municipality.get((c[10], c[11], c[12])) if c[12] else None
+        if _add(grid, c, name or c[1]):
             n += 1
     return n
 
@@ -87,11 +109,10 @@ def _load():
         if _grid is not None or _failed:
             return
         try:
-            grid, seen = {}, set()
-            n = _read(os.path.join(GEO_DIR, "cities500.txt"), grid, seen, False)
-            extra = {}
-            for f in country_files():
-                extra[f[:2]] = _read(os.path.join(GEO_DIR, f), grid, seen, True)
+            grid = {}
+            full = country_files()
+            n = _read_cities(os.path.join(GEO_DIR, "cities500.txt"), grid, {f[:2] for f in full})
+            extra = {f[:2]: _read_country(os.path.join(GEO_DIR, f), grid) for f in full}
             ci = os.path.join(GEO_DIR, "countryInfo.txt")
             if os.path.isfile(ci):
                 with open(ci, encoding="utf-8") as fh:
@@ -103,7 +124,7 @@ def _load():
                             _countries[c[0]] = c[4]
             _grid = grid
             log.info("GeoNames loaded: %d places%s", n,
-                     "".join(f", +{k} {v} villages" for k, v in extra.items()))
+                     "".join(f", {k} full list {v}" for k, v in extra.items()))
         except OSError as e:
             log.warning("GeoNames not available: %s", e)
             _failed = True

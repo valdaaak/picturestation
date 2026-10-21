@@ -754,14 +754,16 @@ check("appka: virtualne tagy zapnute", i["virtual_tag"] == {"people_tag": True, 
 # --- male obce z uplneho zoznamu krajiny (SK.txt): blizsia dedina vyhra, mestska cast (PPLX) sa ignoruje ---
 from picturestation import geo as _geo  # noqa: E402
 with open(os.path.join(gdir, "SK.txt"), "w", encoding="utf-8") as fh:
-    fh.write("1\tMalovo\tMalovo\t\t48.1500\t17.1170\tP\tPPL\tSK\t\t\t\t\t\t120\t\t\tEurope/Bratislava\t2020-01-01\n")
-    fh.write("2\tCastovo\tCastovo\t\t48.1500\t17.1167\tP\tPPLX\tSK\t\t\t\t\t\t9000\t\t\tEurope/Bratislava\t2020-01-01\n")
-    fh.write("3\tBratislava\tBratislava\t\t48.14816\t17.10674\tP\tPPLC\tSK\t\t\t\t\t\t423737\t\t\tEurope/Bratislava\t2020-01-01\n")
+    # osada Malovo patri pod obec Velka Obec (ADM3 s rovnakymi kodmi admin1/2/3)
+    fh.write("1\tMalovo\tMalovo\t\t48.1500\t17.1170\tP\tPPL\tSK\t\t02\t102\t529001\t\t120\t\t\tEurope/Bratislava\t2020-01-01\n")
+    fh.write("2\tCastovo\tCastovo\t\t48.1500\t17.1167\tP\tPPLX\tSK\t\t02\t102\t529001\t\t9000\t\t\tEurope/Bratislava\t2020-01-01\n")
+    fh.write("3\tBratislava\tBratislava\t\t48.14816\t17.10674\tP\tPPLC\tSK\t\t02\t101\t\t\t423737\t\t\tEurope/Bratislava\t2020-01-01\n")
+    fh.write("4\tVelka Obec\tVelka Obec\t\t48.2000\t17.2000\tA\tADM3\tSK\t\t02\t102\t529001\t\t900\t\t\tEurope/Bratislava\t2020-01-01\n")
 _geo._grid = None
 media.index_once()
 _cat.invalidate()
 g = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=ids.item_id("photo", "2001/Maxim/gps.jpg"))
-check("mala obec z SK.txt nahradi vzdialenejsie mesto", g["data"][0]["info"].get("place") == "Malovo, Slovakia", g["data"][0]["info"])
+check("osada z SK.txt sa ukaze ako jej obec", g["data"][0]["info"].get("place") == "Velka Obec, Slovakia", g["data"][0]["info"])
 check("prepocet miest len raz na verziu dat", media.refresh_places() == 0)
 
 print("\nCHYB:", fails)
