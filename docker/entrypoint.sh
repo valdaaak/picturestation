@@ -36,6 +36,21 @@ if [ ! -s "$G/cities500.txt" ] && [ "${PICTURESTATION_GEONAMES_DOWNLOAD:-1}" = 1
   fi
 fi
 
+# small villages for the countries in PICTURESTATION_GEONAMES_COUNTRIES (e.g. SK,CZ), populated places only
+for CC in $(printf '%s' "${PICTURESTATION_GEONAMES_COUNTRIES:-}" | tr 'a-z,' 'A-Z '); do
+  case "$CC" in [A-Z][A-Z]) ;; *) echo "skipping bad country code: $CC" >&2; continue ;; esac
+  [ -s "$G/$CC.txt" ] && continue
+  echo "downloading GeoNames villages $CC (once)"
+  mkdir -p "$G.tmp"
+  if wget -q -O "$G.tmp/$CC.zip" "https://download.geonames.org/export/dump/$CC.zip" \
+     && unzip -o -q "$G.tmp/$CC.zip" "$CC.txt" -d "$G.tmp"; then
+    awk -F'\t' '$7 == "P"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
+  else
+    echo "warning: download of $CC failed" >&2
+  fi
+  rm -rf "$G.tmp"
+done
+
 # first administrator: PICTURESTATION_ADMIN_PASSWORD, otherwise a random password printed once
 if ! python3 -m picturestation.cli list | grep -v '^@' | grep -v '^ ' | grep -q .; then
   NAME=${PICTURESTATION_ADMIN_USER:-admin}

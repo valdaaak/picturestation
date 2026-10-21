@@ -751,5 +751,18 @@ check("po vypnuti host nevidi nic", r["data"]["items"] == [], r["data"]["items"]
 i = call("info.php", api="SYNO.PhotoStation.Info", method="getinfo", version="1")["data"]
 check("appka: virtualne tagy zapnute", i["virtual_tag"] == {"people_tag": True, "geo_tag": True, "desc_tag": True}, i["virtual_tag"])
 
+# --- male obce z uplneho zoznamu krajiny (SK.txt): blizsia dedina vyhra, mestska cast (PPLX) sa ignoruje ---
+from picturestation import geo as _geo  # noqa: E402
+with open(os.path.join(gdir, "SK.txt"), "w", encoding="utf-8") as fh:
+    fh.write("1\tMalovo\tMalovo\t\t48.1500\t17.1170\tP\tPPL\tSK\t\t\t\t\t\t120\t\t\tEurope/Bratislava\t2020-01-01\n")
+    fh.write("2\tCastovo\tCastovo\t\t48.1500\t17.1167\tP\tPPLX\tSK\t\t\t\t\t\t9000\t\t\tEurope/Bratislava\t2020-01-01\n")
+    fh.write("3\tBratislava\tBratislava\t\t48.14816\t17.10674\tP\tPPLC\tSK\t\t\t\t\t\t423737\t\t\tEurope/Bratislava\t2020-01-01\n")
+_geo._grid = None
+media.index_once()
+_cat.invalidate()
+g = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=ids.item_id("photo", "2001/Maxim/gps.jpg"))
+check("mala obec z SK.txt nahradi vzdialenejsie mesto", g["data"][0]["info"].get("place") == "Malovo, Slovakia", g["data"][0]["info"])
+check("prepocet miest len raz na verziu dat", media.refresh_places() == 0)
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)

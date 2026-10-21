@@ -252,6 +252,32 @@ def _add_place(m: dict) -> bool:
     return True
 
 
+def refresh_places() -> int:
+    """After the GeoNames data changed (e.g. a country with small villages was added), look up the place
+    of every photo with GPS again. Runs once per data version; returns the number of changed places."""
+    if not geo.available():
+        return 0
+    sig = geo.signature()
+    if store.get_setting("geo_signature") == sig:
+        return 0
+    db = store.db()
+    changed = 0
+    for r in db.execute("SELECT path, data FROM meta WHERE data LIKE '%\"gps\"%'").fetchall():
+        m = json.loads(r["data"])
+        g = m.get("gps")
+        if not g:
+            continue
+        res = geo.lookup(g["lat"], g["lng"]) or ("", "")
+        if (m.get("place"), m.get("cc")) != res:
+            m["place"], m["cc"] = res
+            db.execute("UPDATE meta SET data=? WHERE path=?", (json.dumps(m, ensure_ascii=False), r["path"]))
+            changed += 1
+    store.set_setting("geo_signature", sig)
+    if changed:
+        log.info("places looked up again: %d photos changed", changed)
+    return changed
+
+
 def get_meta(f: dict) -> dict:
     """f = polozka z list_dir. Metadata z cache, alebo ich precita zo suboru."""
     f = with_stat(f)
@@ -512,6 +538,8 @@ def index_once():
     from . import catalog, moves
     t0, n, errors = time.time(), 0, 0
     db = store.db()
+    if refresh_places():
+        catalog.invalidate()
     # stav z posledneho prechodu (nie meta - tu sa dopisuju aj subory otvorene medzi prechodmi)
     old = {r["path"]: r["size"] for r in db.execute("SELECT path, size FROM last_seen")}
     in_meta = [r["path"] for r in db.execute("SELECT path FROM meta")]

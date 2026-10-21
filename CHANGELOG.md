@@ -4,6 +4,7 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Places also for villages below 500 inhabitants. `PICTURESTATION_GEONAMES_COUNTRIES=SK,CZ` downloads the full GeoNames lists of those countries, with populated places only and without city sections. After the place data changes, the gallery looks up the places of all photos again, once.
 - The installers wait up to 10 minutes for the package manager lock, for example while unattended upgrades run, instead of stopping.
 
 ## 0.1.0 – 2026-10-21

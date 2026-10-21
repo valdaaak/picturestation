@@ -14,6 +14,7 @@ services:
       PUID: "1026"                                 # owner of the data folder (id of a DSM user)
       PGID: "100"
       PICTURESTATION_TITLE: "Photos"
+      # PICTURESTATION_GEONAMES_COUNTRIES: "SK,CZ"  # place names also for villages below 500 inhabitants
       # PICTURESTATION_ADMIN_PASSWORD: "change-me" # otherwise a random password is printed in the log
       # behind the DSM reverse proxy: trust its X-Forwarded-For (address of the Docker gateway)
       # PICTURESTATION_TRUSTED_PROXIES: "172.17.0.1"

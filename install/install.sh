@@ -89,6 +89,23 @@ if [ "$UPDATE" = 0 ]; then
   fi
 fi
 
+# small villages: full GeoNames dumps for the countries in PICTURESTATION_GEONAMES_COUNTRIES (e.g. SK,CZ),
+# only populated places are kept; the gallery looks the places up again after a change
+COUNTRIES=$(sed -n 's/^PICTURESTATION_GEONAMES_COUNTRIES=//p' "$ENVF" | tail -n 1 | tr 'a-z,' 'A-Z ')
+for CC in $COUNTRIES; do
+  case "$CC" in [A-Z][A-Z]) ;; *) echo "skipping bad country code: $CC" >&2; continue ;; esac
+  [ -s "$G/$CC.txt" ] && continue
+  echo "== GeoNames villages $CC"
+  if wget -q -O "$G/$CC.zip" "https://download.geonames.org/export/dump/$CC.zip" \
+     && unzip -o -q "$G/$CC.zip" "$CC.txt" -d "$G.tmp"; then
+    awk -F'\t' '$7 == "P"' "$G.tmp/$CC.txt" > "$G/$CC.txt"
+    chown "$U:$U" "$G/$CC.txt"
+  else
+    echo "warning: download of $CC failed" >&2
+  fi
+  rm -rf "$G/$CC.zip" "$G.tmp"
+done
+
 # photo folder other than /mnt/photo: the unit needs to know it
 ROOT=$(sed -n 's/^\(PICTURESTATION\|DSPHOTO\)_ROOT=//p' "$ENVF" | tail -n 1)
 ROOT=${ROOT:-/mnt/photo}

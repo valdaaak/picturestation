@@ -37,24 +37,61 @@ def available() -> bool:
     return os.path.isfile(os.path.join(GEO_DIR, "cities500.txt"))
 
 
+# Full country dumps (e.g. SK.txt from download.geonames.org/export/dump/SK.zip) add small villages that
+# cities500 leaves out. Only populated places, without city sections and historical or abandoned places.
+PLACE_CODES = {"PPL", "PPLA", "PPLA2", "PPLA3", "PPLA4", "PPLA5", "PPLC", "PPLF", "PPLG", "PPLL", "PPLR", "PPLS"}
+
+
+def country_files() -> list:
+    try:
+        names = os.listdir(GEO_DIR)
+    except OSError:
+        return []
+    return sorted(n for n in names if len(n) == 6 and n.endswith(".txt") and n[:2].isalpha() and n[:2].isupper())
+
+
+def signature() -> str:
+    """Changes when the place data changes (then places of all photos are looked up again)."""
+    parts = []
+    for n in ["cities500.txt"] + country_files():
+        try:
+            st = os.stat(os.path.join(GEO_DIR, n))
+            parts.append(f"{n}:{st.st_size}")
+        except OSError:
+            pass
+    return f"{MAX_KM}|" + ",".join(parts)
+
+
+def _read(path, grid, seen, full_dump):
+    n = 0
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            c = line.rstrip("\r\n").split("\t")
+            if len(c) < 9 or c[0] in seen:
+                continue
+            if full_dump and (c[6] != "P" or c[7] not in PLACE_CODES):
+                continue
+            try:
+                lat, lon = float(c[4]), float(c[5])
+            except ValueError:
+                continue
+            seen.add(c[0])
+            grid.setdefault((int(math.floor(lat)), int(math.floor(lon))), []).append((lat, lon, c[1], c[8]))
+            n += 1
+    return n
+
+
 def _load():
     global _grid, _failed
     with _lock:
         if _grid is not None or _failed:
             return
         try:
-            grid = {}
-            n = 0
-            with open(os.path.join(GEO_DIR, "cities500.txt"), encoding="utf-8") as fh:
-                for line in fh:
-                    c = line.split("\t")
-                    try:
-                        lat, lon = float(c[4]), float(c[5])
-                    except (IndexError, ValueError):
-                        continue
-                    grid.setdefault((int(math.floor(lat)), int(math.floor(lon))), []).append(
-                        (lat, lon, c[1], c[8]))
-                    n += 1
+            grid, seen = {}, set()
+            n = _read(os.path.join(GEO_DIR, "cities500.txt"), grid, seen, False)
+            extra = {}
+            for f in country_files():
+                extra[f[:2]] = _read(os.path.join(GEO_DIR, f), grid, seen, True)
             ci = os.path.join(GEO_DIR, "countryInfo.txt")
             if os.path.isfile(ci):
                 with open(ci, encoding="utf-8") as fh:
@@ -65,7 +102,8 @@ def _load():
                         if len(c) > 4:
                             _countries[c[0]] = c[4]
             _grid = grid
-            log.info("GeoNames loaded: %d places", n)
+            log.info("GeoNames loaded: %d places%s", n,
+                     "".join(f", +{k} {v} villages" for k, v in extra.items()))
         except OSError as e:
             log.warning("GeoNames not available: %s", e)
             _failed = True
