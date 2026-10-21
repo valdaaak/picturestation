@@ -29,6 +29,10 @@ _cover_cache = {}    # (gallery, rel, perm...) -> (dir_mtime, cover_rel|None, ti
 _lock = threading.Lock()
 FFMPEG = shutil.which("ffmpeg")
 FFPROBE = shutil.which("ffprobe")
+EXIFTOOL = shutil.which("exiftool")
+# Formaty, ktore Pillow bez pluginov neotvori, ale exiftool z nich precita EXIF (datum, GPS, rozmer, foto):
+# HEIC/HEIF z iPhonu a bezne RAW. Nahlady pre ne beru z @eaDir (DSM ich uz vyrobil).
+EXIFTOOL_EXT = {"heic", "heif", "cr2", "cr3", "nef", "arw", "dng", "orf", "rw2", "raf"}
 NUL = chr(0)
 
 
@@ -184,6 +188,68 @@ def _exif_photo(path: str) -> dict:
     return d
 
 
+def _exiftool_meta(path: str) -> dict:
+    """EXIF z formatov, ktore Pillow neotvori (HEIC, RAW), cez exiftool. Rovnaky tvar ako _exif_photo."""
+    d = {"w": 0, "h": 0}
+    if not EXIFTOOL:
+        return d
+    try:
+        out = subprocess.run(
+            [EXIFTOOL, "-j", "-n", "-q", "-fast2", "-ImageWidth", "-ImageHeight", "-Orientation",
+             "-DateTimeOriginal", "-CreateDate", "-Make", "-Model", "-ExposureTime", "-FNumber", "-ISO",
+             "-FocalLength", "-LensModel", "-GPSLatitude", "-GPSLongitude", "-Keywords", "-Subject", path],
+            capture_output=True, timeout=25)
+        arr = json.loads(out.stdout or b"[]")
+        if not arr:
+            return d
+        t = arr[0]
+        w, h = int(t.get("ImageWidth") or 0), int(t.get("ImageHeight") or 0)
+        if int(t.get("Orientation") or 1) in (5, 6, 7, 8):
+            w, h = h, w
+        d.update(w=w, h=h)
+        taken = t.get("DateTimeOriginal") or t.get("CreateDate")
+        if taken:
+            try:
+                d["taken"] = datetime.strptime(_clean(str(taken))[:19], "%Y:%m:%d %H:%M:%S").strftime("%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                pass
+        if t.get("Make"):
+            d["camera"] = _clean(str(t["Make"]))
+        if t.get("Model"):
+            d["model"] = _clean(str(t["Model"]))
+        et = t.get("ExposureTime")
+        if et:
+            et = float(et)
+            d["exposure"] = f"1/{round(1 / et)} s" if 0 < et < 1 else f"{et:g} s"
+        if t.get("FNumber"):
+            d["aperture"] = f"F{float(t['FNumber']):.1f}"
+        iso = t.get("ISO")
+        if isinstance(iso, (list, tuple)):
+            iso = iso[0] if iso else None
+        if iso:
+            d["iso"] = int(iso)
+        if t.get("FocalLength"):
+            d["focal"] = f"{float(t['FocalLength']):g} mm"
+        if t.get("LensModel"):
+            d["lens"] = _clean(str(t["LensModel"]))
+        lat, lng = t.get("GPSLatitude"), t.get("GPSLongitude")
+        if lat is not None and lng is not None and (lat or lng):
+            d["gps"] = {"lat": round(float(lat), 6), "lng": round(float(lng), 6)}
+        kws = []
+        for key in ("Keywords", "Subject"):
+            v = t.get(key)
+            if isinstance(v, str):
+                kws.append(v)
+            elif isinstance(v, (list, tuple)):
+                kws += [str(x) for x in v]
+        kws = sorted({s.strip() for s in kws if s and str(s).strip()})
+        if kws:
+            d["kw"] = kws
+    except Exception as e:
+        log.debug("exiftool %s: %s", path, e)
+    return d
+
+
 def _probe_video(path: str) -> dict:
     d = {"w": 0, "h": 0, "duration": 0}
     if not FFPROBE:
@@ -240,7 +306,7 @@ def with_stat(f: dict) -> dict:
     return {**f, "mtime": st.st_mtime, "size": st.st_size}
 
 
-META_VERSION = 3  # 2 = poloha videi + miesto z GPS, 3 = klucove slova z fotiek (tagy)
+META_VERSION = 4  # 2 = poloha videi; 3 = klucove slova fotiek; 4 = EXIF z HEIC/RAW cez exiftool
 
 
 def _add_place(m: dict) -> bool:
@@ -283,20 +349,28 @@ def get_meta(f: dict) -> dict:
     """f = polozka z list_dir. Metadata z cache, alebo ich precita zo suboru."""
     f = with_stat(f)
     m = store.meta_get(f["rel"], f["mtime"], f["size"])
-    # videa nemaju klucove slova -> staci verzia 2
-    need = META_VERSION if f["kind"] == "photo" else 2
+    ext = ext_of(f["name"])
+    exiftool_fmt = ext in EXIFTOOL_EXT
+    # videa (v2) a fotky bez klucovych slov; HEIC/RAW chcu v4 (exiftool), ostatne fotky v3
+    need = 2 if f["kind"] != "photo" else (4 if exiftool_fmt else 3)
     if m is not None and m.get("v", 1) >= need:
         if _add_place(m):
             store.meta_put(f["rel"], f["mtime"], f["size"], f["kind"], m)
         return m
     p = ids.abs_path(f["rel"])
     if f["kind"] == "photo":
-        m = _exif_photo(p) if ext_of(f["name"]) in config.PIL_EXT else {"w": 0, "h": 0}
+        if ext in config.PIL_EXT:
+            m = _exif_photo(p)
+        elif exiftool_fmt:
+            m = _exiftool_meta(p)
+        else:
+            m = {"w": 0, "h": 0}
     elif m is not None and m.get("v", 1) >= 2:
         pass  # video uz ma aktualne udaje
     else:
         m = _probe_video(p)
-    m["v"] = need
+    # HEIC/RAW bez exiftoolu: ponechaj v3, nech sa precita znovu, ak sa exiftool neskor doinstaluje
+    m["v"] = 3 if (exiftool_fmt and not EXIFTOOL) else need
     m.setdefault("taken", fmt_ts(f["mtime"]))
     _add_place(m)
     store.meta_put(f["rel"], f["mtime"], f["size"], f["kind"], m)

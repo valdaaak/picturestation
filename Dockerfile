@@ -7,7 +7,7 @@ FROM debian:trixie-slim
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-starlette python3-uvicorn python3-pil \
-      ffmpeg sqlite3 ca-certificates wget unzip \
+      ffmpeg libimage-exiftool-perl sqlite3 ca-certificates wget unzip \
  && rm -rf /var/lib/apt/lists/*
 
 COPY server/picturestation /opt/picturestation/picturestation

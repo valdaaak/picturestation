@@ -41,7 +41,7 @@ U=picturestation
 
 echo "== packages"
 export DEBIAN_FRONTEND=noninteractive
-PKGS="python3 python3-starlette python3-uvicorn python3-pil ffmpeg sqlite3 wget unzip ca-certificates"
+PKGS="python3 python3-starlette python3-uvicorn python3-pil ffmpeg libimage-exiftool-perl sqlite3 wget unzip ca-certificates"
 [ -n "$NFS" ] && PKGS="$PKGS nfs-common"
 apt-get -o DPkg::Lock::Timeout=600 -qq update >/dev/null
 apt-get -o DPkg::Lock::Timeout=600 -qq install -y $PKGS >/dev/null

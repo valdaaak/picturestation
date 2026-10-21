@@ -776,6 +776,18 @@ tid = [t[0] for t in _cat.list_tags(adm_perm) if t[1] == "tajny-titulka"]
 check("titulka tagu pre admina", tid and _cat.cover_for(tid[0], adm_perm) == "Súkromné/tajne.jpg", tid)
 check("zapamatana titulka admina sa k inemu nedostane", tid and _cat.cover_for(tid[0], kol_perm) is None)
 
+# --- exiftool parser: rovnaky vystup ako Pillow (overene na JPG; v produkcii sluzi pre HEIC/RAW) ---
+from picturestation import media as _m2  # noqa: E402
+_gp = os.path.join(ROOT, "2001", "Maxim", "gps.jpg")
+if _m2.EXIFTOOL and os.path.isfile(_gp):
+    em, pm = _m2._exiftool_meta(_gp), _m2._exif_photo(_gp)
+    check("exiftool: rozmer ako Pillow", em["w"] == pm["w"] and em["h"] == pm["h"] and em["w"] > 0, (em, pm))
+    check("exiftool: datum ako Pillow", em.get("taken") == pm.get("taken"), (em.get("taken"), pm.get("taken")))
+    check("exiftool: GPS ako Pillow", bool(em.get("gps")) and abs(em["gps"]["lat"] - pm["gps"]["lat"]) < 1e-4
+          and abs(em["gps"]["lng"] - pm["gps"]["lng"]) < 1e-4, (em.get("gps"), pm.get("gps")))
+else:
+    print("OK   exiftool test preskoceny (exiftool nie je / subor chyba)")
+
 # ================= bezpecnostne regresie (audit 2026-10) =================
 from picturestation import store as _sec_store  # noqa: E402
 
