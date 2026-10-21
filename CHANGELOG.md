@@ -2,6 +2,10 @@
 
 Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. Every release is a git tag `vX.Y.Z`. The Docker image carries the same version.
 
+## Unreleased
+
+- The installers wait up to 10 minutes for the package manager lock, for example while unattended upgrades run, instead of stopping.
+
 ## 0.1.0 – 2026-10-21
 
 First version.
