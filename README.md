@@ -25,6 +25,7 @@ Picturestation is not affiliated with or endorsed by Synology. Synology, DSM, Ph
 - [How it fits together](#how-it-fits-together)
 - [Install on Proxmox VE](#install-on-proxmox-ve)
 - [Install on Debian 13](#install-on-debian-13)
+- [Docker and Synology Container Manager](#docker-and-synology-container-manager)
 - [Share the photo folder from DSM over NFS](#share-the-photo-folder-from-dsm-over-nfs)
 - [HTTPS and your own domain](#https-and-your-own-domain)
 - [The DS photo app](#the-ds-photo-app)
@@ -110,6 +111,31 @@ sh /opt/picturestation-src/install/install.sh --update
 ```
 
 **Settings** are in `/etc/picturestation/picturestation.env`, see [the example](install/picturestation.env.example). After a change, run `systemctl restart picturestation`.
+
+## Docker and Synology Container Manager
+
+Picturestation can also run in a container directly on the NAS, without NFS:
+
+```sh
+docker run -d --name picturestation --restart unless-stopped -p 8080:8080 \
+  -v /volume1/photo:/photos:ro -v /volume1/docker/picturestation:/data \
+  -e PUID=1026 -e PGID=100 ghcr.io/valdaaak/picturestation
+```
+
+**In Synology Container Manager:**
+1. Create the folder `docker/picturestation` in File Station.
+2. Open **Project, Create**, choose that folder and paste [docker-compose.yml](docker-compose.yml).
+3. Adjust the paths and `PUID`/`PGID`. They must be the id of a DSM user who can write to the data folder. `id <user>` over SSH shows it, and 1026/100 is the usual first user.
+
+**First start.** It downloads the place names, creates the user `admin` and prints its password in the container log. The password is also saved in `/data/admin-password.txt`; delete that file after you change the password.
+
+**Settings.** They are environment variables with the same names as in [the settings example](install/picturestation.env.example). For the people sync, put the password file into the data folder and set `SYNO_PASS_FILE=/data/synology.pass`.
+
+**Behind the DSM reverse proxy**, set `PICTURESTATION_TRUSTED_PROXIES` to the gateway of the Docker network. `docker network inspect bridge` shows it, usually `172.17.0.1`.
+
+**User management:** `docker exec -it picturestation picturestation-user list`.
+
+**To update:** pull the new image and recreate the container. The data folder stays.
 
 ## Share the photo folder from DSM over NFS
 
