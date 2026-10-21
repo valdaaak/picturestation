@@ -299,10 +299,21 @@ class Perm:
         self.unlocked = set(unlocked)     # albumy odomknute heslom v tejto session
         self.forced = set()               # albumy zo zdielaneho odkazu (vylucenie na ne neplati)
         self.items = set()                # jednotlive subory pristupne cez zdielany odkaz
+        self._folder_memo = {}            # priecinok -> can_browse (lists over 70,000 files ask per file)
+        self._memo_ver = None
 
     def can_item(self, rel: str) -> bool:
         """Pristup k suboru: cez album, alebo priamo zdielany subor."""
-        return rel in self.items or self.can_browse(rel.rsplit("/", 1)[0] if "/" in rel else "")
+        if rel in self.items:
+            return True
+        folder = rel.rsplit("/", 1)[0] if "/" in rel else ""
+        ver = (len(self.unlocked), len(self.forced), len(self.pw_albums), self.root_public)
+        if ver != self._memo_ver:
+            self._folder_memo, self._memo_ver = {}, ver
+        ok = self._folder_memo.get(folder)
+        if ok is None:
+            ok = self._folder_memo[folder] = self.can_browse(folder)
+        return ok
 
     def best_rule(self, rel: str):
         """(cesta, vylucenie, vlastne) rozhodujuceho pravidla, alebo None.

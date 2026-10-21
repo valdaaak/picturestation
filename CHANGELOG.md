@@ -4,6 +4,7 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Faster Collections page. Covers of tags, places, people and smart albums are remembered from the lists, the library list is rebuilt in the background and warmed up at start, and permissions are evaluated once per folder.
 - Places also for villages below 500 inhabitants. `PICTURESTATION_GEONAMES_COUNTRIES=SK,CZ` downloads the full GeoNames lists of those countries, with populated places only and without city sections. Settlements are named after their municipality, so a part of a village shows the village name. After the place data changes, the gallery looks up the places of all photos again, once.
 - The installers wait up to 10 minutes for the package manager lock, for example while unattended upgrades run, instead of stopping.
 
