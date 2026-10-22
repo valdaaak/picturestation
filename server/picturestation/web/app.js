@@ -680,10 +680,36 @@ function renderItems(items) {
     if (it.thumbnail_status !== "default") img.src = thumbUrl(it, "small");
     tile.append(img);
     if (it.type === "video") tile.append(el("span", "badge", fmtDuration(it.info.duration)));
-    else if (it.info.live) tile.append(el("span", "badge live", "LIVE"));
+    else if (it.info.live) {
+      tile.append(el("span", "badge live", "LIVE"));
+      liveHover(tile, it);
+    }
     tile.onclick = () => openViewer(idx);
     grid.append(tile);
   }
+}
+
+// Live Photo in the grid: with the mouse resting on the tile its motion plays once, muted. The short delay keeps
+// a quick sweep over the grid from downloading many videos.
+function liveHover(tile, it) {
+  let timer = 0, vid = null;
+  const stop = () => {
+    clearTimeout(timer);
+    if (vid) { vid.pause(); vid.removeAttribute("src"); vid.load(); vid.remove(); vid = null; }
+  };
+  tile.addEventListener("pointerenter", (e) => {
+    if (e.pointerType !== "mouse") return;
+    timer = setTimeout(() => {
+      vid = el("video", "tile-live");
+      vid.muted = true; vid.playsInline = true; vid.preload = "auto";
+      vid.onplaying = () => vid && vid.classList.add("ok");
+      vid.onended = vid.onerror = stop;
+      vid.src = downloadUrl({ type: "video", id: it.info.live }, true);
+      tile.append(vid);
+      vid.play().catch(stop);
+    }, 250);
+  });
+  tile.addEventListener("pointerleave", stop);
 }
 
 new IntersectionObserver((e) => { if (e[0].isIntersecting) loadMore(); }, { rootMargin: "800px" })
