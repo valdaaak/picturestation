@@ -59,6 +59,16 @@ def _clean(v) -> str:
 
 # ---------------- priecinky ----------------
 def list_dir(rel: str):
+    """(subfolders, media) of an album as people see it: without the motion videos of Live Photos."""
+    dirs, files = scan_dir(rel)
+    from . import catalog
+    motion = catalog.live_pairs()[1]
+    if motion:
+        files = [f for f in files if f["rel"] not in motion]
+    return dirs, files
+
+
+def scan_dir(rel: str):
     """Vrati (podpriecinky, media) pre album; zoznamy slovnikov name/rel/mtime/size/kind."""
     p = ids.abs_path(rel)
     st = os.stat(p)
@@ -641,7 +651,7 @@ def index_once():
         relroot = "" if relroot == "." else relroot
         try:
             _dir_cache.pop((config.current().name, relroot), None)  # vzdy cerstvy vypis
-            _, media = list_dir(relroot)
+            _, media = scan_dir(relroot)
         except (OSError, ids.BadId):
             errors += 1
             continue

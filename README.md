@@ -8,6 +8,7 @@ Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works
 - **the DS photo app** (Android), which connects to it as if it were Photo Station 6;
 - **Photo Station style rights**: users, groups, guest access, password-protected albums, excluded albums, share links with expiry;
 - **people from Synology Photos**: face recognition stays in Synology Photos, Picturestation shows the named people;
+- **iPhone photos**: HEIC with dates and places (with exiftool), and Live Photos as one item whose motion plays in the viewer;
 - **thumbnails** that DSM already made in `@eaDir`, and its own cache for the rest.
 
 Your photos are never changed. Picturestation needs read access only and keeps its own data (users, rights, comments, thumbnail cache) in one folder.

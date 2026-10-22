@@ -195,6 +195,7 @@ FLAGS = {
     "allow_comment_guest": False,   # hostia mozu komentovat
     "root_files_public": False,     # fotky priamo v koreni (nie albumy) vidi kazdy, aj bez prihlasenia
     "people_for_guest": False,      # hostia bez prihlasenia vidia mena ludi na fotkach
+    "live_photos": True,            # Live Photos: fotka a jej kratke video s rovnakym menom ako jedna polozka
 }
 
 

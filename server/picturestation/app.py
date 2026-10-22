@@ -255,6 +255,9 @@ def media_item(ctx: Ctx, f: dict, m=None) -> dict:
                                  "focal_length": m.get("focal", ""), "lens": m.get("lens", ""), "flash": ""}
         if gps:
             info["gps"] = gps
+        motion = catalog.live_pairs()[0].get(rel)
+        if motion:
+            info["live"] = ids.item_id("video", motion)  # Live Photo: id of its motion video
     else:
         info["duration"] = str(m.get("duration", 0))
         add["video_codec"] = {"container": m.get("container", ""), "vcodec": m.get("vcodec", ""),
@@ -490,9 +493,12 @@ def _album_list_recursive(ctx, types, offset, limit, keyword):
             if ctx.perm.can_see(d) and (not keyword or keyword in posixpath.basename(d).lower()):
                 found.append(("album", d))
     if keyword and types & {"photo", "video"}:
-        pat = "%" + keyword.replace("%", "").replace("_", "") + "%"
-        for r in store.db().execute("SELECT path, kind FROM meta WHERE lower(path) LIKE ? ORDER BY path", (pat,)):
-            if r["kind"] in types and keyword in posixpath.basename(r["path"]).lower() \
+        # % and _ are LIKE wildcards: escaped, so that "IMG_1" finds IMG_1.jpg
+        pat = "%" + keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%"
+        motion = catalog.live_pairs()[1]
+        for r in store.db().execute("SELECT path, kind FROM meta WHERE lower(path) LIKE ? ESCAPE '!' ORDER BY path",
+                                    (pat,)):
+            if r["kind"] in types and r["path"] not in motion and keyword in posixpath.basename(r["path"]).lower() \
                     and ctx.perm.can_browse(posixpath.dirname(r["path"])):
                 found.append((r["kind"], r["path"]))
     items = []
@@ -512,7 +518,10 @@ def _media_from_id(ctx: Ctx, id_):
     if kind not in ("photo", "video"):
         raise ApiError(E_PHOTO_BAD)
     if not ctx.perm.can_item(rel):
-        raise ApiError(E_PHOTO_DENY)
+        # the motion video of a Live Photo goes with its photo (also for a link sharing just that photo)
+        photo = catalog.live_pairs()[1].get(rel)
+        if photo is None or not ctx.perm.can_item(photo):
+            raise ApiError(E_PHOTO_DENY)
     try:
         return media.file_entry(rel)
     except (OSError, FileNotFoundError):
@@ -567,8 +576,9 @@ def api_photo(ctx: Ctx):
     else:
         # cela kniznica (timeline) z indexu
         files, metas = [], []
+        motion = catalog.live_pairs()[1]
         for r in store.db().execute("SELECT path, mtime, size, kind, data FROM meta"):
-            if r["kind"] not in types or not ctx.perm.can_browse(posixpath.dirname(r["path"])):
+            if r["kind"] not in types or r["path"] in motion or not ctx.perm.can_browse(posixpath.dirname(r["path"])):
                 continue
             files.append({"name": posixpath.basename(r["path"]), "rel": r["path"], "mtime": r["mtime"],
                           "size": r["size"], "kind": r["kind"]})

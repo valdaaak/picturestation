@@ -19,6 +19,27 @@ _snap_lock = threading.Lock()
 _snap_rebuilding = set()
 SNAP_TTL = 60
 
+# Live Photos (iPhone): a photo and a short .MOV with the same name in the same folder are one item. The video is
+# left out of the library list and the album listings and plays from the photo.
+LIVE_PHOTO_EXT = ("heic", "heif", "jpg", "jpeg")
+LIVE_MAX_MS = 5000
+_live = {}              # gallery -> ({photo rel: video rel}, {video rel: photo rel})
+
+
+def _live_pairs(rows) -> dict:
+    stems = {}
+    for rel, kind, _mt, _sz, _m in rows:
+        base, _, ext = rel.rpartition(".")
+        if kind == "photo" and ext.lower() in LIVE_PHOTO_EXT:
+            stems.setdefault(base.lower(), rel)
+    pairs = {}
+    for rel, kind, _mt, _sz, m in rows:
+        if kind == "video" and rel.lower().endswith(".mov") and 0 < (m.get("duration") or 0) <= LIVE_MAX_MS:
+            photo = stems.get(rel[:-4].lower())
+            if photo:
+                pairs[photo] = rel
+    return pairs
+
 
 def _build_snapshot():
     name = config.current().name
@@ -28,8 +49,13 @@ def _build_snapshot():
             rows.append((r["path"], r["kind"], r["mtime"], r["size"], json.loads(r["data"])))
         except ValueError:
             continue
+    pairs = _live_pairs(rows) if store.flag("live_photos") else {}
+    motion = {v: p for p, v in pairs.items()}
+    if motion:
+        rows = [r for r in rows if r[0] not in motion]
     with _snap_lock:
         _snaps[name] = (rows, time.time())
+        _live[name] = (pairs, motion)
     return rows
 
 
@@ -54,6 +80,13 @@ def snapshot():
     if start:
         config.in_thread(_rebuild_in_background, name).start()
     return snap if snap is not None else _build_snapshot()
+
+
+def live_pairs():
+    """({photo: its motion video}, {motion video: its photo}) of the current gallery, from the library list."""
+    snapshot()
+    with _snap_lock:
+        return _live.get(config.current().name, ({}, {}))
 
 
 def invalidate():

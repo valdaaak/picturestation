@@ -680,6 +680,7 @@ function renderItems(items) {
     if (it.thumbnail_status !== "default") img.src = thumbUrl(it, "small");
     tile.append(img);
     if (it.type === "video") tile.append(el("span", "badge", fmtDuration(it.info.duration)));
+    else if (it.info.live) tile.append(el("span", "badge live", "LIVE"));
     tile.onclick = () => openViewer(idx);
     grid.append(tile);
   }
@@ -709,6 +710,7 @@ function openViewer(i) {
 
 function closeViewer(fromRoute) {
   if ($("viewer").hidden) return;
+  stopLive();
   const v = $("vVideo");
   v.pause(); v.removeAttribute("src"); v.load();
   $("viewer").hidden = true;
@@ -731,6 +733,8 @@ function show(i) {
   $("vDownload").href = downloadUrl(it, false);
   $("vDownload").setAttribute("download", it.info.name);
   msg.hidden = true;
+  stopLive();
+  $("vLive").hidden = it.type === "video" || !it.info.live;
   if (it.type === "video") {
     img.hidden = true; img.removeAttribute("src");
     vid.hidden = false;
@@ -754,7 +758,39 @@ function show(i) {
   if (S.media.length - i < 10) loadMore();
 }
 
+// Live Photo: the short video plays over the photo (mouse over LIVE, or a tap on it), then the photo is back
+let liveOn = false;
+function playLive() {
+  const it = S.media[vIdx];
+  if (liveOn || !it || it.type === "video" || !it.info.live) return;
+  const img = $("vImg"), vid = $("vVideo");
+  liveOn = true;
+  $("vLive").classList.add("on");
+  vid.controls = false;
+  vid.removeAttribute("poster");
+  vid.src = downloadUrl({ type: "video", id: it.info.live }, true);
+  vid.onended = stopLive;
+  vid.onplaying = () => { img.hidden = true; vid.hidden = false; };
+  vid.play().catch(stopLive);
+}
+function stopLive() {
+  if (!liveOn) return;
+  liveOn = false;
+  const vid = $("vVideo");
+  vid.onended = vid.onplaying = null;
+  vid.pause(); vid.removeAttribute("src"); vid.load();
+  vid.hidden = true; vid.controls = true;
+  $("vLive").classList.remove("on");
+  if (S.media[vIdx] && S.media[vIdx].type !== "video") $("vImg").hidden = false;
+}
+$("vLive").addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") playLive(); });
+$("vLive").addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") stopLive(); });
+$("vLive").addEventListener("click", (e) => {  // touch and keyboard; the mouse plays on hover
+  if (e.pointerType !== "mouse") liveOn ? stopLive() : playLive();
+});
+
 $("vVideo").addEventListener("error", () => {
+  if (liveOn) { stopLive(); return; }
   const it = S.media[vIdx];
   if (!it || it.type !== "video" || !$("vVideo").getAttribute("src")) return;
   const m = $("vMsg");
@@ -799,6 +835,13 @@ function renderInfo(it) {
     a.onclick = () => closeViewer(true);
     const dd = el("dd"); dd.append(a);
     dl.append(el("dt", null, t("Place")), dd);
+  }
+  if (it.info.live && S.canDownload) {
+    const a = el("a", null, t("Download original"));
+    a.href = downloadUrl({ type: "video", id: it.info.live }, false);
+    a.setAttribute("download", it.info.name.replace(/[.][^.]+$/, ".MOV"));
+    const dd = el("dd"); dd.append(a);
+    dl.append(el("dt", null, t("Motion (Live Photo)")), dd);
   }
   const tbox = el("div", "item-tags");
   const cbox = el("div", "comments");

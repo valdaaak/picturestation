@@ -287,9 +287,12 @@ def settings(_me, b):
     if "title" in b:
         t = (b["title"] or "").strip()[:100]
         store.set_setting("title", t or None)
+    live = store.flag("live_photos")
     for k in store.FLAGS:
         if k in b:
             store.set_setting(k, "1" if b[k] else "0")
+    if store.flag("live_photos") != live:
+        catalog.invalidate()  # the library list hides or shows the motion videos again
     if "root_album_order" in b:
         store.set_setting("root_album_order", "desc" if b["root_album_order"] == "desc" else "asc")
     if "language" in b:

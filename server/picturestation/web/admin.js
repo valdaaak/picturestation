@@ -365,6 +365,7 @@ const Admin = (() => {
     ["allow_comment_guest", t("Guests without signing in can comment (with a name, max. 20 per hour from one address)")],
     ["root_files_public", t("Photos and videos directly in the root are public (albums are not)")],
     ["people_for_guest", t("Guests without signing in see names of people in photos (from Synology Photos)")],
+    ["live_photos", t("Show Live Photos (a photo and its short video with the same name) as one item")],
   ];
 
   function drawGeneral() {

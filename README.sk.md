@@ -8,6 +8,7 @@ Synology v DSM 7 zrušilo Photo Station. Synology Photos nemá práva na albumy 
 - **appku DS photo** (Android), ktorá sa k nemu pripojí ako k Photo Station 6;
 - **práva ako v Photo Station**: používatelia, skupiny, hostia, albumy s heslom, vylúčené albumy, odkazy na zdieľanie s platnosťou;
 - **ľudí zo Synology Photos**: rozpoznávanie tvárí ostáva v Synology Photos, Picturestation zobrazí pomenovaných ľudí;
+- **fotky z iPhonu**: HEIC s dátumami a miestami (cez exiftool) a Live Photos ako jednu položku, ktorej pohyb sa prehrá v prehliadači;
 - **náhľady**, ktoré už DSM vytvoril v `@eaDir`, a vlastnú vyrovnávaciu pamäť pre ostatné.
 
 Fotky sa nikdy nemenia. Picturestation potrebuje len právo na čítanie. Svoje údaje (používateľov, práva, komentáre, náhľady) má v jednom priečinku.

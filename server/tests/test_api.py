@@ -788,6 +788,72 @@ if _m2.EXIFTOOL and os.path.isfile(_gp):
 else:
     print("OK   exiftool test preskoceny (exiftool nie je / subor chyba)")
 
+# ================= Live Photos: fotka + kratke .MOV s rovnakym menom = jedna polozka =================
+import subprocess  # noqa: E402
+from picturestation import catalog as _cat, media as _lm, store as _ls  # noqa: E402
+
+
+def mov(rel, secs):
+    p = os.path.join(ROOT, rel)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    subprocess.run([_lm.FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=duration={secs}:size=160x120:rate=10",
+                    "-c:v", "mpeg4", p], check=True)
+
+
+if _lm.FFMPEG and _lm.FFPROBE:
+    photo("2002/Live/IMG_1.jpg", exif_date="2002:06:01 10:00:00")
+    mov("2002/Live/IMG_1.MOV", 2)            # Live Photo
+    photo("2002/Live/IMG_2.jpg", exif_date="2002:06:02 10:00:00")
+    mov("2002/Live/IMG_2.MOV", 8)            # dlhe video s rovnakym menom = samostatne
+    mov("2002/Live/Klip.MOV", 2)             # kratke video bez fotky = samostatne
+    _lm.index_once()
+    c.cookies.clear()
+    call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
+    LIVE_MOV = ids.item_id("video", "2002/Live/IMG_1.MOV")
+
+    def live_album():
+        r = call("album.php", api="SYNO.PhotoStation.Album", method="list", version="1",
+                 id=ids.album_id("2002/Live"), type="photo,video", additional="thumb_size")
+        return {i["info"]["name"]: i for i in r["data"]["items"]}
+
+    la = live_album()
+    check("live: album bez videa z paru", sorted(la) == sorted(["IMG_1.jpg", "IMG_2.jpg", "IMG_2.MOV", "Klip.MOV"]), sorted(la))
+    check("live: fotka ma id pohybu", la["IMG_1.jpg"]["info"].get("live") == LIVE_MOV, la["IMG_1.jpg"]["info"])
+    check("live: fotka bez paru nema live", "live" not in la["IMG_2.jpg"]["info"], la["IMG_2.jpg"]["info"])
+    tl = call("photo.php", api="SYNO.PhotoStation.Photo", method="list", version="1", type="photo,video", limit="5000")
+    names = [i["additional"]["file_location"] for i in tl["data"]["items"]]
+    check("live: casova os bez videa z paru", "2002/Live/IMG_1.MOV" not in names and "2002/Live/IMG_2.MOV" in names)
+    adm("settings", {"disable_search": False, "disable_timeline": False})
+    sr = call("album.php", api="SYNO.PhotoStation.Album", method="list", version="1", recursive="true",
+              keyword="img_1", type="photo,video")
+    sn = [i["info"]["name"] for i in sr["data"].get("items", [])]
+    check("live: vyhladavanie bez videa z paru", "IMG_1.MOV" not in sn and "IMG_1.jpg" in sn, sr)
+    check("live: pocet v snapshote", not any(r[0] == "2002/Live/IMG_1.MOV" for r in _cat.snapshot()))
+    dv = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                           "id": LIVE_MOV})
+    check("live: pohyb sa da prehrat", dv.status_code == 200 and dv.content[4:8] == b"ftyp", dv.status_code)
+
+    # zdielanie jednej fotky: pohyb ide s nou, ine video v priecinku nie
+    tokl = adm("share_create", {"path": "2002/Live/IMG_1.jpg", "days": 1}).json()["token"]
+    spl = TestClient(appmod.app)
+    dv = spl.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                             "id": LIVE_MOV, "share": tokl})
+    check("live: zdielana fotka pusti svoj pohyb", dv.status_code == 200 and dv.content[4:8] == b"ftyp", dv.text[:80])
+    dv = gcall(spl, "download.php", api="SYNO.PhotoStation.Download", method="getvideo", version="1",
+               id=ids.item_id("video", "2002/Live/IMG_2.MOV"), share=tokl)
+    check("live: zdielana fotka nepusti ine video", dv.get("success") is False, dv)
+    adm("share_delete", {"token": tokl})
+
+    # vypnute v nastaveniach: video je zase samostatna polozka
+    adm("settings", {"live_photos": False})
+    la = live_album()
+    check("live vypnute: video z paru viditelne", "IMG_1.MOV" in la and "live" not in la["IMG_1.jpg"]["info"], sorted(la))
+    adm("settings", {"live_photos": True})
+    check("live zapnute znova", "IMG_1.MOV" not in live_album())
+    check("live: predvolene zapnute", _ls.FLAGS["live_photos"] is True)
+else:
+    print("OK   Live Photos test preskoceny (bez ffmpeg/ffprobe)")
+
 # ================= bezpecnostne regresie (audit 2026-10) =================
 from picturestation import store as _sec_store  # noqa: E402
 
