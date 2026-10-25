@@ -1021,7 +1021,8 @@ $("vInfoBtn").onclick = () => { $("vInfo").hidden = !$("vInfo").hidden; store("i
 $("vInfo").hidden = store("info") !== "1";
 addEventListener("popstate", () => { if (!$("viewer").hidden) { vPushed = false; closeViewer(true); } });
 addEventListener("keydown", (e) => {
-  if ($("viewer").hidden || e.target.tagName === "INPUT") return;
+  // while typing (comment, tag, password) the keys belong to the field, not to the viewer
+  if ($("viewer").hidden || e.target.closest("input, textarea, select, [contenteditable]")) return;
   if (e.key === "ArrowRight") next();
   else if (e.key === "ArrowLeft") prev();
   else if (e.key === "Escape") closeViewer(false);
