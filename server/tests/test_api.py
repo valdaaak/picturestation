@@ -854,6 +854,42 @@ if _lm.FFMPEG and _lm.FFPROBE:
 else:
     print("OK   Live Photos test preskoceny (bez ffmpeg/ffprobe)")
 
+# ================= Povolit vsetko vnutri: zrusi vlastne pravidla v podalbumoch =================
+c.cookies.clear()
+call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
+adm("user_create", {"username": "zuza", "password": "zuzaheslo1"})
+adm("group_create", {"name": "ZuzaSkup"})
+adm("group_update", {"name": "ZuzaSkup", "members": ["zuza"]})
+adm("grant", {"type": "user", "name": "zuza", "path": "2001"})
+adm("grant", {"type": "user", "name": "zuza", "path": "2001/Maxim", "deny": True})
+adm("grant", {"type": "user", "name": "zuza", "path": "2001/Rodina", "deny": True})
+adm("grant", {"type": "user", "name": "zuza", "path": "Súkromné"})
+adm("grant", {"type": "group", "name": "ZuzaSkup", "path": "2001/Maxim", "deny": True})
+adm("grant", {"type": "user", "name": "kolega", "path": "2001/Rodina", "deny": True})
+av = adm("access_view", {"type": "user", "name": "zuza", "path": ""}).json()
+check("below: koren vidi 4 vlastne pravidla nizsie",
+      av["self"]["below"] == ["2001", "2001/Maxim", "2001/Rodina", "Súkromné"], av["self"])
+av = adm("access_view", {"type": "user", "name": "zuza", "path": "2001"}).json()
+check("below: 2001 vidi 2 vylucenia pod sebou", av["self"]["below"] == ["2001/Maxim", "2001/Rodina"], av["self"])
+r = adm("grant", {"type": "user", "name": "zuza", "path": "2001", "clear_below": True})
+check("povolit vsetko vnutri: zrusene 2", r.status_code == 200 and r.json().get("removed") == 2, r.text)
+from picturestation import store as _zs  # noqa: E402
+own = {r["path"]: r["deny"] for r in _zs.db().execute("SELECT path, deny FROM access WHERE username='zuza'")}
+check("zuza: ostalo povolenie 2001 a Súkromné", own == {"2001": 0, "Súkromné": 0}, own)
+grp = {r["path"]: r["deny"] for r in _zs.db().execute("SELECT path, deny FROM access WHERE username=?", (_zs.GROUP_PREFIX + "ZuzaSkup",))}
+check("skupina: vylucenie nedotknute", grp == {"2001/Maxim": 1}, grp)
+kol = _zs.db().execute("SELECT deny FROM access WHERE username='kolega' AND path='2001/Rodina'").fetchone()
+check("iny pouzivatel: pravidlo nedotknute", kol is not None and kol["deny"] == 1)
+av = adm("access_view", {"type": "user", "name": "zuza", "path": "2001"}).json()
+eff = {a["name"]: a["effective"] for a in av["albums"]}
+check("zuza vidi Rodinu, Maxima nie (skupina)", eff.get("Rodina") == "yes" and eff.get("Maxim") != "yes", eff)
+r = adm("grant", {"type": "user", "name": "zuza", "path": "", "clear_below": True})
+own = {r["path"]: r["deny"] for r in _zs.db().execute("SELECT path, deny FROM access WHERE username='zuza'")}
+check("povolit celu kniznicu: ostane len koren", r.json().get("removed") == 2 and own == {"": 0}, (r.text, own))
+r = adm("grant", {"type": "user", "name": "zuza", "path": "2001/Maxim", "deny": True, "clear_below": True})
+check("vylucenie s clear_below nic nemaze", r.json().get("removed") == 0, r.text)
+adm("revoke", {"type": "user", "name": "kolega", "path": "2001/Rodina"})
+
 # ================= bezpecnostne regresie (audit 2026-10) =================
 from picturestation import store as _sec_store  # noqa: E402
 

@@ -72,13 +72,15 @@ const Admin = (() => {
 
   async function load() {
     st = await req("state");
+    const y = scrollY;  // redrawn after a change: the page stays where it was scrolled
     draw();
+    scrollTo(0, y);
   }
 
   async function show() {
     root().hidden = false;
     root().replaceChildren(h("div", { class: "spinner" }));
-    try { await load(); } catch (e) {
+    try { await load(); scrollTo(0, 0); } catch (e) {
       root().replaceChildren(h("p", { class: "empty" }, e.message));
     }
   }
@@ -126,7 +128,8 @@ const Admin = (() => {
       return h("span", { class: "acc-badge " + lbl[1] }, lbl[0]);
     };
     async function refresh() {
-      list.replaceChildren(h("div", { class: "spinner" }));
+      const keep = list.childElementCount ? [list.scrollTop, d.scrollTop] : null;  // after a change: stay where scrolled
+      if (!keep) list.replaceChildren(h("div", { class: "spinner" }));
       let r;
       try { r = await req("album_access", { path }); }
       catch (e) { list.replaceChildren(h("p", { class: "err" }, e.message)); return; }
@@ -149,6 +152,7 @@ const Admin = (() => {
             p.via ? h("div", { class: "muted" }, viaText(p.via)) : null),
           badge(p), h("span", { class: "acc-btns" }, btns));
       }));
+      if (keep) [list.scrollTop, d.scrollTop] = keep;
     }
     refresh();
   }
@@ -186,11 +190,20 @@ const Admin = (() => {
         out.push(b(t("Allow"), "add", () => set({ type, name, path }, t("Allowed."))));
       if (s.rule !== "deny" && path !== "") out.push(b(t("Exclude"), "danger", () => set({ type, name, path, deny: true }, t("Excluded."))));
       if (s.rule) out.push(b(t("Remove rule"), "", () => set({ type, name, path, revoke: true }, t("Rule removed."))));
+      // povolit cely album naraz: zrusi aj vlastne pravidla v podalbumoch (vylucenia aj povolenia)
+      const below = s.below || [];
+      if (below.length) out.push(b(tn(below.length, "Allow all inside (removes {n} rule below)", "Allow all inside (removes {n} rules below)"), "add", () => {
+        const list = below.slice(0, 15).map((p) => "  " + p).join("\n") + (below.length > 15 ? "\n  …" : "");
+        if (!confirm(t("Allow “{path}” with all sub-albums and remove these rules:", { path: path || t("Whole library") }) + "\n" + list)) return;
+        set({ type, name, path, clear_below: true }, t("Allowed."));
+      }));
       return h("span", { class: "acc-btns" }, out);
     }
 
     async function go(path) {
-      list.replaceChildren(h("div", { class: "spinner" }));
+      // the same album again (after Allow/Exclude): no spinner and the list stays where it was scrolled
+      const keep = path === cur && list.childElementCount ? [list.scrollTop, d.scrollTop] : null;
+      if (!keep) list.replaceChildren(h("div", { class: "spinner" }));
       let r;
       try { r = await req("access_view", { type, name, path }); }
       catch (e) { list.replaceChildren(h("p", { class: "err" }, e.message)); return; }
@@ -209,6 +222,7 @@ const Admin = (() => {
           a.via ? h("div", { class: "muted" }, viaText(a.via)) : null),
         badge(a), buttons(a.path, a)))
         : [h("p", { class: "muted" }, t("No sub-albums ({n} photos and videos).", { n: r.files }))]));
+      if (keep) [list.scrollTop, d.scrollTop] = keep;
     }
     go("");
   }

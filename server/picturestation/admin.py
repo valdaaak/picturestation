@@ -195,9 +195,23 @@ def grant(_me, b):
     deny = bool(b.get("deny"))
     if deny and rel == "":
         raise AdminError("The whole library cannot be excluded, remove the access instead.")
+    db = store.db()
+    removed = 0
+    if b.get("clear_below") and not deny:
+        # "allow everything inside": the principal's own rules in sub-albums go (groups keep theirs)
+        below = _rules_below(pr, rel)
+        for p in below:
+            db.execute("DELETE FROM access WHERE username=? AND path=?", (pr, p))
+        removed = len(below)
     # povolenie a vylucenie toho isteho albumu sa navzajom nahradia
-    store.db().execute("INSERT OR REPLACE INTO access(username, path, deny) VALUES (?,?,?)", (pr, rel, int(deny)))
-    return {"ok": True}
+    db.execute("INSERT OR REPLACE INTO access(username, path, deny) VALUES (?,?,?)", (pr, rel, int(deny)))
+    return {"ok": True, "removed": removed}
+
+
+def _rules_below(pr, rel) -> list:
+    """Paths of the principal's own rules inside album rel (not rel itself)."""
+    return sorted(r["path"] for r in store.db().execute("SELECT path FROM access WHERE username=?", (pr,))
+                  if r["path"] != rel and (rel == "" or r["path"].startswith(rel + "/")))
 
 
 def _state_fn(t, pr):
@@ -215,6 +229,7 @@ def _state_fn(t, pr):
         if perm.admin:
             return {"rule": None, "effective": "all", "via": {"admin": True}}
         rule = None if path not in own else ("deny" if own[path] else "allow")
+        below = sorted(p for p in own if p != path and (path == "" or p.startswith(path + "/")))
         if perm.can_browse(path):
             eff = "yes"
         elif perm.is_ancestor(path):
@@ -231,7 +246,7 @@ def _state_fn(t, pr):
                     "SELECT 1 FROM access WHERE username=? AND path=? AND deny=?",
                     (store.GROUP_PREFIX + g, bpath, int(bdeny))).fetchone()]
                 via["groups"] = which or sorted(groups)
-        return {"rule": rule, "effective": eff, "via": via}
+        return {"rule": rule, "effective": eff, "via": via, "below": below}
 
     return state
 

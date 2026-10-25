@@ -4,6 +4,7 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Access editor: "Allow all inside" allows an album and removes the principal's own rules in its sub-albums in one step (a confirmation lists them); group rules stay. After Allow/Exclude the album list and the Settings page stay where they were scrolled.
 - Live Photos: an iPhone photo (HEIC/JPG) and its short .MOV with the same name in the same folder are one item. The video is left out of albums, the timeline, search and collections; the photo has a LIVE badge, its motion plays in the grid when the mouse rests on it, and over the photo in the viewer (mouse over LIVE, or a tap). The video can be downloaded from the photo details and goes with the photo in a share link. Videos longer than 5 seconds stay separate. Settings, General: on by default, can be turned off per gallery.
 - Search for names with an underscore (for example IMG_1234) found nothing.
 - EXIF from HEIC/HEIF and RAW photos (iPhone and camera raw) via exiftool, when it is installed: date, GPS/place, dimensions, camera and keywords. Thumbnails for these still come from the NAS (@eaDir). Needs the libimage-exiftool-perl package, now in the installers and the Docker image.

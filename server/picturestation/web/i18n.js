@@ -75,6 +75,12 @@ const I18N_SK = {
   "The browser cannot play this video.": "Toto video prehliadač neprehrá.",
   "Download original": "Stiahnuť originál",
   "Motion (Live Photo)": "Pohyb (Live Photo)",
+  "Allow all inside (removes {n} rules below)": [
+    "Povoliť všetko vnútri (zruší {n} pravidlo nižšie)",
+    "Povoliť všetko vnútri (zruší {n} pravidlá nižšie)",
+    "Povoliť všetko vnútri (zruší {n} pravidiel nižšie)"
+  ],
+  "Allow “{path}” with all sub-albums and remove these rules:": "Povoliť „{path}“ so všetkými podalbumami a zrušiť tieto pravidlá:",
   "Play the motion": "Prehrať pohyb",
   "Show Live Photos (a photo and its short video with the same name) as one item": "Live Photos (fotka a jej krátke video s rovnakým menom) zobrazovať ako jednu položku",
   "File": "Súbor",
