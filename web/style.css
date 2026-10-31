@@ -149,6 +149,7 @@ dialog .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6
 .adm-body { display: grid; gap: 12px; }
 .adm-new { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px; border: 1px dashed var(--line); border-radius: var(--radius); }
 .adm-new input:not([type=checkbox]) { flex: 1 1 150px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg2); }
+.adm-new input.code { flex: 0 1 140px; font-family: ui-monospace, Consolas, monospace; font-size: 18px; letter-spacing: .15em; text-transform: uppercase; }
 .card { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
 .card.off { opacity: .6; }
 .card-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 6px; }

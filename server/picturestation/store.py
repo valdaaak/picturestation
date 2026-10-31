@@ -154,6 +154,15 @@ CREATE TABLE IF NOT EXISTS unlocks (
     path     TEXT NOT NULL,
     PRIMARY KEY (sid, path)
 );
+-- paired devices (the LG TV app): a named, long-lived session; see pairing.py and Settings, TV
+CREATE TABLE IF NOT EXISTS devices (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    sid       TEXT NOT NULL UNIQUE,
+    name      TEXT NOT NULL,
+    username  TEXT NOT NULL,
+    created   INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL DEFAULT 0
+);
 -- private galleries (used in the main gallery's database only)
 CREATE TABLE IF NOT EXISTS galleries (
     name      TEXT PRIMARY KEY,
@@ -529,6 +538,7 @@ def session_lookup(sid):
             return False, None
     if row["expires"] - now < (config.SESSION_DAYS - 1) * 86400:
         db().execute("UPDATE sessions SET expires=? WHERE sid=?", (now + config.SESSION_DAYS * 86400, sid))
+    db().execute("UPDATE devices SET last_seen=? WHERE sid=? AND last_seen<?", (now, sid, now - 3600))
     return True, (None if row["username"] == GUEST else row["username"])
 
 
@@ -545,6 +555,33 @@ def drop_session(sid):
     if sid:
         db().execute("DELETE FROM sessions WHERE sid=?", (sid,))
         db().execute("DELETE FROM unlocks WHERE sid=?", (sid,))
+        db().execute("DELETE FROM devices WHERE sid=?", (sid,))
+
+
+DEVICE_DAYS = 3650  # a paired device stays signed in until the administrator removes it
+
+
+def new_device_session(username: str, name: str) -> str:
+    """Session of a paired device (the LG TV app), listed under Settings, TV. See pairing.py."""
+    sid = secrets.token_hex(16)
+    now = int(time.time())
+    db().execute("INSERT INTO sessions VALUES (?,?,?)", (sid, username, now + DEVICE_DAYS * 86400))
+    db().execute("INSERT INTO devices (sid, name, username, created, last_seen) VALUES (?,?,?,?,0)",
+                 (sid, name, username, now))
+    return sid
+
+
+def device_list() -> list:
+    db().execute("DELETE FROM devices WHERE sid NOT IN (SELECT sid FROM sessions)")  # user deleted, session gone
+    return [{"id": r["id"], "name": r["name"], "username": r["username"], "created": r["created"],
+             "last_seen": r["last_seen"]}
+            for r in db().execute("SELECT * FROM devices ORDER BY created DESC")]
+
+
+def device_delete(id_: int):
+    row = db().execute("SELECT sid FROM devices WHERE id=?", (id_,)).fetchone()
+    if row:
+        drop_session(row["sid"])
 
 
 def purge_sessions():

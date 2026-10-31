@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import admin, catalog, config, geo, i18n, ids, media, store
+from . import admin, catalog, config, geo, i18n, ids, media, pairing, store
 
 log = logging.getLogger("picturestation.api")
 
@@ -1055,6 +1055,7 @@ _routes = Starlette(routes=[
     Route("/photo/", photo_redirect),
     Route("/s/{token}", share_redirect),
     Route("/api/share/{token}", share_api),
+    Route("/api/tv/{op}", pairing.tv_api, methods=["POST", "OPTIONS"]),  # LG TV app pairing
     *admin.routes,
     Mount("/", app=WebFiles(directory=WEB_DIR, html=True), name="web"),
 ], lifespan=lifespan)

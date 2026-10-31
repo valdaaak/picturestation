@@ -143,7 +143,8 @@ def user_delete(me, b):
         raise AdminError("At least one administrator must remain.")
     db = store.db()
     for sql in ("DELETE FROM users WHERE username=?", "DELETE FROM access WHERE username=?",
-                "DELETE FROM sessions WHERE username=?", "DELETE FROM group_members WHERE username=?"):
+                "DELETE FROM sessions WHERE username=?", "DELETE FROM devices WHERE username=?",
+                "DELETE FROM group_members WHERE username=?"):
         db.execute(sql, (name,))
     return {"ok": True}
 
@@ -433,6 +434,27 @@ def share_delete(_me, b):
     return {"ok": True}
 
 
+# ---------- paired TVs (the LG TV app, LGTV/): the TV shows a code, the administrator allows it here ----------
+def device_pair(_me, b):
+    from . import pairing
+    u = store.get_user((b.get("user") or "").strip())
+    if not u or u["disabled"]:
+        raise AdminError("User does not exist.")
+    try:
+        return pairing.approve(b.get("code") or "", u["username"])
+    except KeyError:
+        raise AdminError("Unknown or expired code. Check it on the TV; after 10 minutes it shows a new one.")
+
+
+def device_list(_me, _b):
+    return {"devices": store.device_list()}
+
+
+def device_delete(_me, b):
+    store.device_delete(int(b.get("id") or 0))
+    return {"ok": True}
+
+
 def _file_rel(b) -> str:
     try:
         rel = ids.clean_rel(b.get("path") or "")
@@ -665,6 +687,7 @@ OPS = {
     "smart_save": smart_save, "smart_delete": smart_delete,
     "comment_delete": comment_delete,
     "share_create": share_create, "share_list": share_list, "share_delete": share_delete,
+    "device_pair": device_pair, "device_list": device_list, "device_delete": device_delete,
     "album_get": album_get, "album_set": album_set,
     "state": state, "user_create": user_create, "user_update": user_update, "user_delete": user_delete,
     "group_create": group_create, "group_update": group_update, "group_delete": group_delete,
@@ -688,7 +711,8 @@ async def endpoint(req: Request):
         except ValueError:
             return JSONResponse({"error": i18n.tr("Bad JSON.", lang)}, status_code=400)
     else:
-        if op not in ("state", "albums", "album_get", "share_list", "tag_names", "moves_state", "galleries_list"):
+        if op not in ("state", "albums", "album_get", "share_list", "device_list", "tag_names", "moves_state",
+                      "galleries_list"):
             return JSONResponse({"error": i18n.tr("POST required.", lang)}, status_code=405)
         body = dict(req.query_params)
     body["_sid"] = store.request_sid(req)

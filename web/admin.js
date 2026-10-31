@@ -229,13 +229,14 @@ const Admin = (() => {
 
   function draw() {
     const tabs = [["users", t("Users")], ["groups", t("Groups")], ["guest", t("Without signing in")],
-      ["shares", t("Shares")], ["moves", t("Moves")], ["general", t("General")]];
+      ["shares", t("Shares")], ["tv", t("TV")], ["moves", t("Moves")], ["general", t("General")]];
     if (st.is_main) tabs.push(["galleries", t("Galleries")]);
     if (tab === "galleries" && !st.is_main) tab = "users";
     const nav = h("nav", { class: "adm-tabs" }, tabs.map(([k, label]) =>
       h("button", { type: "button", class: k === tab ? "on" : "", onclick: () => { tab = k; draw(); } }, label)));
     const body = { users: drawUsers, groups: drawGroups, guest: drawGuest, general: drawGeneral,
       shares: () => { const w = h("div", { class: "adm-body" }); drawShares(w); return w; },
+      tv: () => { const w = h("div", { class: "adm-body" }); drawDevices(w); return w; },
       moves: () => { const w = h("div", { class: "adm-body" }); drawMoves(w); return w; },
       galleries: () => { const w = h("div", { class: "adm-body" }); drawGalleries(w); return w; } }[tab]();
     root().replaceChildren(h("h2", { class: "adm-h" }, t("Settings")), nav, body);
@@ -595,6 +596,37 @@ const Admin = (() => {
             if (confirm(t("Cancel this link? Whoever has it can no longer get in."))) act("share_delete", { token: s.token }, t("Link cancelled."));
           } }, t("Cancel")))),
         s.expired ? null : copyBox(shareUrl(s.token))));
+    }
+  }
+
+  // ---------- parovane telky (appka pre LG TV, LGTV/) ----------
+  async function drawDevices(wrap) {
+    let list;
+    try { list = (await req("device_list")).devices; } catch (e) { wrap.append(h("p", { class: "err" }, e.message)); return; }
+    wrap.append(h("p", { class: "muted" }, t("The Picturestation app on an LG TV shows a code. Enter it here and choose "
+      + "whose photos the TV will see. The TV stays signed in until you remove it here.")));
+    const users = st.users.filter((u) => !u.disabled);
+    const form = h("form", { class: "adm-new", onsubmit: async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      if (await act("device_pair", { code: fd.get("code"), user: fd.get("user") }, t("TV allowed."))) e.target.reset();
+    } },
+      h("strong", null, t("Code from the TV")),
+      h("input", { name: "code", required: true, autocomplete: "off", maxlength: "7", placeholder: "ABC123",
+        class: "code", spellcheck: "false" }),
+      h("select", { name: "user" }, users.map((u) => h("option", { value: u.username }, u.username))),
+      h("button", { class: "primary", type: "submit" }, t("Allow")));
+    wrap.append(form);
+    if (!list.length) { wrap.append(h("p", { class: "muted" }, t("No TV yet."))); return; }
+    for (const d of list) {
+      wrap.append(h("section", { class: "card" },
+        h("div", { class: "card-h" },
+          h("div", null, h("strong", null, d.name), " ", h("span", { class: "tag" }, d.username),
+            h("div", { class: "muted" }, t("allowed {date}", { date: fmtDay(d.created) }) + " · "
+              + (d.last_seen ? t("last seen {date}", { date: fmtDay(d.last_seen) }) : t("not used yet")))),
+          h("div", { class: "card-a" }, h("button", { type: "button", class: "link danger", onclick: () => {
+            if (confirm(t("Remove this TV? It will ask for a new code."))) act("device_delete", { id: d.id }, t("TV removed."));
+          } }, t("Remove"))))));
     }
   }
 

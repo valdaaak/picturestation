@@ -1013,5 +1013,41 @@ r = br.get(W + "thumb.php", params={"api": "SYNO.PhotoStation.Thumb", "method": 
 check("prehliadac: PHPSESSID v URL sa ignoruje", not (r.status_code == 200 and r.headers["content-type"] == "image/jpeg"),
       (r.status_code, r.headers.get("content-type")))
 
+# --- parovanie telky (LGTV/): telka ukaze kod, admin ho povoli pod pouzivatelom ---
+from picturestation import pairing  # noqa: E402
+r = tv2.post("/api/tv/code", data={"name": "  55UH8507-ZA  "})
+j = r.json()
+check("TV kod", r.status_code == 200 and len(j["code"]) == 6 and set(j["code"]) <= set(pairing.ALPHABET)
+      and len(j["token"]) == 32 and r.headers.get("access-control-allow-origin") == "*", (r.status_code, j))
+r = tv2.options("/api/tv/poll", headers={"Origin": "null", "Access-Control-Request-Method": "POST"})
+check("TV preflight", r.status_code == 204 and r.headers.get("access-control-allow-origin") == "*", r.status_code)
+check("TV poll caka na admina", tv2.post("/api/tv/poll", data={"token": j["token"]}).json() == {"status": "pending"})
+check("TV poll s cudzim tokenom", tv2.post("/api/tv/poll", data={"token": "x" * 32}).json() == {"status": "unknown"})
+c.cookies.clear()
+call("auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="spravca", password="heslo1234")
+adm("user_create", {"username": "telka", "password": "heslo-tv-123"})
+r = adm("device_pair", {"code": "ZZZZZZ", "user": "telka"})
+check("zly kod = chyba", r.status_code == 400 and "code" in r.json()["error"], (r.status_code, r.text))
+r = adm("device_pair", {"code": j["code"], "user": "nikto"})
+check("neznamy pouzivatel = chyba", r.status_code == 400, (r.status_code, r.text))
+r = adm("device_pair", {"code": " " + j["code"].lower() + " ", "user": "telka"})
+check("admin povoli telku", r.status_code == 200 and r.json() == {"name": "55UH8507-ZA", "username": "telka"}, (r.status_code, r.text))
+r = tv2.post("/api/tv/poll", data={"token": j["token"]}).json()
+check("TV poll dostane session", r["status"] == "ok" and r["username"] == "telka" and len(r["sid"]) == 32 and r["title"], r)
+dsid = r["sid"]
+check("TV poll druhy raz uz nic", tv2.post("/api/tv/poll", data={"token": j["token"]}).json() == {"status": "unknown"})
+r = tv2.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "checkauth", "version": "1"},
+             headers={"X-SYNO-TOKEN": dsid}).json()
+check("telka je prihlasena", r["data"]["username"] == "telka", r)
+devs = adm("device_list").json()["devices"]
+check("zoznam teliek", len(devs) == 1 and devs[0]["name"] == "55UH8507-ZA" and devs[0]["username"] == "telka"
+      and devs[0]["last_seen"] > 0 and "sid" not in devs[0], devs)
+adm("device_delete", {"id": devs[0]["id"]})
+r = tv2.post(W + "album.php", data={"api": "SYNO.PhotoStation.Album", "method": "list", "version": "1", "offset": "0",
+                                    "limit": "1"}, headers={"X-SYNO-TOKEN": dsid})
+check("odstranena telka = session prec", r.headers.get("x-request-error") == "error_timeout"
+      and adm("device_list").json()["devices"] == [], (dict(r.headers), adm("device_list").json()))
+adm("user_delete", {"username": "telka"})
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)
