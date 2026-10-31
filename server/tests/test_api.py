@@ -972,5 +972,46 @@ if have_symlink:
 else:
     print("OK   @eaDir symlink test preskoceny (bez podpory symlinkov)")
 
+# --- LG TV app (LGTV/): CORS bez credentials, session ako appka DS photo ---
+r = c.options(W + "query.php", headers={"Origin": "null", "Access-Control-Request-Method": "POST",
+                                        "Access-Control-Request-Headers": "x-syno-token"})
+check("CORS preflight", r.status_code == 204 and r.headers.get("access-control-allow-origin") == "*"
+      and "x-syno-token" in r.headers.get("access-control-allow-headers", "").lower()
+      and "POST" in r.headers.get("access-control-allow-methods", ""), (r.status_code, dict(r.headers)))
+r = c.post(W + "query.php", data={"api": "SYNO.API.Info", "method": "query", "version": "1", "query": "all"})
+check("CORS hlavicka v odpovedi API, bez credentials", r.headers.get("access-control-allow-origin") == "*"
+      and r.headers.get("access-control-allow-credentials") is None
+      and "x-request-error" in r.headers.get("access-control-expose-headers", ""), dict(r.headers))
+TV_UA = ("Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) "
+         "Chrome/38.0.2125.122 Safari/537.36 WebAppManager")
+tv = TestClient(appmod.app, headers={"User-Agent": TV_UA})
+lg = tv.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "login", "version": "1",
+                                   "username": "spravca", "password": "heslo1234"}).json()
+tvsid = lg["data"]["sid"]
+tv2 = TestClient(appmod.app, headers={"User-Agent": TV_UA})  # bez cookies, ako XHR z appky
+r = tv2.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "checkauth", "version": "1"},
+             headers={"X-SYNO-TOKEN": tvsid}).json()
+check("TV appka: session z hlavicky X-SYNO-TOKEN", r["success"] and r["data"]["username"] == "spravca", r)
+r = tv.post(W + "photo.php", data={"api": "SYNO.PhotoStation.Photo", "method": "list", "version": "1",
+                                   "type": "photo", "offset": "0", "limit": "1", "sort_by": "takendate",
+                                   "sort_direction": "desc"}).json()
+pid = r["data"]["items"][0]["id"]
+r = tv2.get(W + "thumb.php", params={"api": "SYNO.PhotoStation.Thumb", "method": "get", "version": "1",
+                                     "id": pid, "size": "small", "PHPSESSID": tvsid})
+check("TV appka: nahlad s PHPSESSID v URL", r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+      and r.headers.get("access-control-allow-origin") == "*", (r.status_code, dict(r.headers)))
+r = tv2.get(W + "thumb.php", params={"api": "SYNO.PhotoStation.Thumb", "method": "get", "version": "1",
+                                     "id": pid, "size": "small", "PHPSESSID": "neplatna"})
+check("TV appka: neplatna session nedostane nahlad", r.status_code != 200 or r.headers["content-type"] != "image/jpeg",
+      (r.status_code, r.headers.get("content-type")))
+br = TestClient(appmod.app, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0 Safari/537.36"})
+r = br.post(W + "auth.php", data={"api": "SYNO.PhotoStation.Auth", "method": "checkauth", "version": "1"},
+            headers={"X-SYNO-TOKEN": tvsid}).json()
+check("prehliadac: X-SYNO-TOKEN sa ignoruje", r["success"] and r["data"]["username"] == "", r)
+r = br.get(W + "thumb.php", params={"api": "SYNO.PhotoStation.Thumb", "method": "get", "version": "1",
+                                    "id": pid, "size": "small", "PHPSESSID": tvsid})
+check("prehliadac: PHPSESSID v URL sa ignoruje", not (r.status_code == 200 and r.headers["content-type"] == "image/jpeg"),
+      (r.status_code, r.headers.get("content-type")))
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)

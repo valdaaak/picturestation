@@ -239,8 +239,10 @@ def db() -> sqlite3.Connection:
 
 
 def _is_app(req) -> bool:
-    """The DS photo app (User-Agent Synology-...), not a browser."""
-    return "mozilla" not in req.headers.get("user-agent", "").lower()
+    """A client that keeps its session itself instead of a browser cookie: the DS photo app (User-Agent
+    Synology-...) and the Picturestation app for LG webOS TVs (a packaged web app, User-Agent ...WebAppManager)."""
+    ua = req.headers.get("user-agent", "").lower()
+    return "mozilla" not in ua or "webappmanager" in ua
 
 
 def request_sid(req, params=None):

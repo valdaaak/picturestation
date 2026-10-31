@@ -935,7 +935,18 @@ def dispatch(req: Request, p: dict, sid):
     return resp
 
 
+# CORS for the LG TV app (LGTV/): a packaged webOS web app has no web origin, so the API allows any origin,
+# without credentials. A browser session stays in its cookie, which is never sent cross-site under "*";
+# the TV app carries its session like the DS photo app (X-SYNO-TOKEN header, PHPSESSID in image URLs).
+CORS_HEADERS = {"Access-Control-Allow-Origin": "*",
+                "Access-Control-Expose-Headers": "x-request-error, x-picturestation-version"}
+CORS_PREFLIGHT = {**CORS_HEADERS, "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+                  "Access-Control-Allow-Headers": "X-SYNO-TOKEN, Content-Type", "Access-Control-Max-Age": "86400"}
+
+
 async def webapi(req: Request):
+    if req.method == "OPTIONS":
+        return Response(status_code=204, headers=CORS_PREFLIGHT)
     p = dict(req.query_params)
     if req.method == "POST":
         ctype = req.headers.get("content-type", "")
@@ -950,6 +961,7 @@ async def webapi(req: Request):
     from .web_version import VERSION
     resp.headers["x-picturestation-version"] = VERSION
     resp.headers["X-Content-Type-Options"] = "nosniff"  # JSON je servovany ako text/plain (kvoli appke)
+    resp.headers.update(CORS_HEADERS)
     return resp
 
 
@@ -1036,7 +1048,7 @@ async def lifespan(_app):
 
 
 _routes = Starlette(routes=[
-    Route("/photo/webapi/{script}", webapi, methods=["GET", "POST", "HEAD"]),
+    Route("/photo/webapi/{script}", webapi, methods=["GET", "POST", "HEAD", "OPTIONS"]),
     Route("/", index_page),
     Route("/index.html", index_page),
     Route("/photo", photo_redirect),
