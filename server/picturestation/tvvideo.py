@@ -152,15 +152,19 @@ def process_now(limit=None) -> int:
 
 
 def library_pass():
-    """Queue every sideways video of every gallery, newest folders first; probes the videos whose rotation
-    is not known yet (those indexed before the flag was recorded)."""
-    from . import galleries
+    """Queue every sideways video of every gallery, newest folders first, and convert them before the next
+    gallery is examined. Probes the videos whose rotation is not known yet (indexed before the flag was
+    recorded), which takes a while on a big gallery. Live Photo motion clips are skipped: the TV never shows them."""
+    from . import catalog, galleries
     for g in [config.MAIN] + galleries.all_enabled():
         tok = config.use(g)
         try:
+            motion = catalog.live_pairs()[1]
             rows = store.db().execute("SELECT path, mtime, size, data FROM meta WHERE kind='video' ORDER BY path DESC").fetchall()
             n = 0
             for r in rows:
+                if r["path"] in motion:
+                    continue
                 f = {"rel": r["path"], "name": os.path.basename(r["path"]), "mtime": r["mtime"], "size": r["size"],
                      "kind": "video"}
                 try:
@@ -176,6 +180,7 @@ def library_pass():
             log.exception("library pass failed (%s)", g.name or "main")
         finally:
             config.reset(tok)
+        process_now()
 
 
 def start():
