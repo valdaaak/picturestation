@@ -25,11 +25,34 @@ cd Android
 `local.properties` holds `sdk.dir`. Icons and the TV banner come from the project's logo
 (`docs/logo/make_logo.py`).
 
+**Release signing.** `assembleRelease` signs the APK when `keystore.properties` exists next to
+`settings.gradle.kts` (both it and `keystore/` stay out of git):
+
+```
+storeFile=keystore/picturestation-release.jks
+storePassword=...
+keyAlias=picturestation
+keyPassword=...
+```
+
+Keep the keystore: an update is accepted only when it is signed with the same key as the installed app.
+A debug build is signed with the SDK's debug key, so switching between debug and release means
+uninstalling first (the pairing is then done again).
+
+**Plain http.** The app tries `https://` first. When that fails for an address typed without a scheme,
+it offers `http://` and uses it only after that choice, so that nobody on the way can downgrade the
+connection unnoticed. Inside your own network http is fine.
+
 ## Install
 
 - **Phone:** copy the APK to the phone and open it (allow installing from that app), or `adb install -r app-debug.apk`.
 - **Android TV:** turn on Developer options and network debugging on the TV, then
   `adb connect <tv-ip>:5555` and `adb install -r app-debug.apk`. The app appears in the TV's launcher with its banner.
+
+## Tested
+
+Android 16 emulators, phone and Android TV, against the demo library: pairing, albums, viewer with
+swipe and zoom, video (upright, the player honours the rotation flag), slideshow, settings, sign-out.
 
 ## Remote control (TV)
 

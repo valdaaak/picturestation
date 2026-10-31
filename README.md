@@ -8,7 +8,7 @@ Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works
 
 - **a web gallery** with albums, a timeline, search, tags, places, people and smart albums, in English and Slovak;
 - **the DS photo app** (Android), which connects to it as if it were Photo Station 6;
-- **an app for LG TVs** (webOS 3.0 and later): albums, the newest photos, slideshows and videos from the remote; the TV is paired with a code, without a password;
+- **an app for LG TVs** (webOS 3.0 and later) and **an app for Android and Android TV**: albums, the newest photos, viewer, slideshows and videos; a device is paired with a code, without a password;
 - **Photo Station style rights**: users, groups, guest access, password-protected albums, excluded albums, share links with expiry;
 - **people from Synology Photos**: face recognition stays in Synology Photos, Picturestation shows the named people;
 - **iPhone photos**: HEIC with dates and places (with exiftool), and Live Photos as one item whose motion plays in the viewer;
@@ -34,6 +34,7 @@ Picturestation is not affiliated with or endorsed by Synology. Synology, DSM, Ph
 - [HTTPS and your own domain](#https-and-your-own-domain)
 - [The DS photo app](#the-ds-photo-app)
 - [The LG TV app](#the-lg-tv-app)
+- [The Android app](#the-android-app)
 - [People from Synology Photos](#people-from-synology-photos)
 - [Personal galleries](#personal-galleries)
 - [Moving from Photo Station 6](#moving-from-photo-station-6)
@@ -180,6 +181,10 @@ The app can browse albums, the timeline, tags, places, smart albums and comments
 ## The LG TV app
 
 `LGTV/` holds an app for LG TVs with webOS 3.0 or later: albums, the newest photos, a full-screen viewer, slideshows and videos, driven by the remote control. It is installed through LG's Developer Mode; [LGTV/README.md](LGTV/README.md) has the steps. The TV is paired without a password: it shows a code, and an administrator allows it under **Settings, TV** for a chosen user. The TV stays signed in until it is removed there.
+
+## The Android app
+
+`Android/` holds one app for phones, tablets and Android TV (Android 8.0 and later): albums, the newest photos, a viewer with zoom, people and place, videos, slideshows and sharing a photo; on a TV it has a launcher banner and works with the remote. It is paired like the LG TV app, with a code allowed under **Settings, TV**. [Android/README.md](Android/README.md) has the build and install steps; the APK is installed by hand (or over adb on a TV), it is not in an app store.
 
 ## People from Synology Photos
 
