@@ -145,7 +145,7 @@ fun BrowseScreen(
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                             Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(if (vm.isTv) 48.dp else 28.dp), tint = Paper)
                             Text(stringResource(R.string.latest_photos), modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp),
-                                color = Paper, fontSize = if (vm.isTv) 26.sp else 13.sp, lineHeight = if (vm.isTv) 30.sp else 15.sp,
+                                color = Paper, fontSize = if (vm.isTv) 20.sp else 13.sp, lineHeight = if (vm.isTv) 24.sp else 15.sp,
                                 textAlign = TextAlign.Center)
                         }
                     }
@@ -161,9 +161,9 @@ fun BrowseScreen(
                         )
                         if (it.type == "album") Text(
                             it.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper,
-                            fontSize = if (vm.isTv) 24.sp else 12.sp, lineHeight = if (vm.isTv) 28.sp else 14.sp,
+                            fontSize = if (vm.isTv) 17.sp else 12.sp, lineHeight = if (vm.isTv) 20.sp else 14.sp,
                             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                                .background(Color(0x99000000)).padding(horizontal = if (vm.isTv) 12.dp else 6.dp, vertical = if (vm.isTv) 6.dp else 3.dp),
+                                .background(Color(0x99000000)).padding(horizontal = if (vm.isTv) 10.dp else 6.dp, vertical = if (vm.isTv) 5.dp else 3.dp),
                         )
                         if (it.type == "video") Text(
                             duration(it.durationMs), color = Paper, style = MaterialTheme.typography.labelSmall,
