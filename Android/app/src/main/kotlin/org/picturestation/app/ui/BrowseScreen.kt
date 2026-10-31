@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.picturestation.app.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,7 +107,11 @@ fun BrowseScreen(
                     Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = if (vm.isTv) 28.sp else 19.sp)
                     Text(count, fontSize = if (vm.isTv) 16.sp else 12.sp, color = Muted)
                 } },
-                navigationIcon = { if (!isRoot) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } },
+                navigationIcon = {
+                    if (!isRoot) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) }
+                    else Image(painterResource(R.drawable.logo_mark), contentDescription = null,
+                        modifier = Modifier.padding(start = 12.dp, end = 4.dp).size(if (vm.isTv) 48.dp else 36.dp))
+                },
                 actions = {
                     if (mediaCount > 0) IconButton(onClick = { onOpenMedia(0, true) }) { Icon(Icons.Filled.PlayArrow, stringResource(R.string.slideshow)) }
                     if (isRoot) IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }

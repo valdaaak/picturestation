@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Picturestation mark: a viewfinder with a sun and a hill. Same geometry as web/logo.svg and docs/logo/make_logo.py (C). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp"
+    android:viewportWidth="1000" android:viewportHeight="1000">
+    <path android:fillColor="#1E293B"
+        android:pathData="M220,0 H780 A220,220 0 0 1 1000,220 V780 A220,220 0 0 1 780,1000 H220 A220,220 0 0 1 0,780 V220 A220,220 0 0 1 220,0 Z"/>
+    <path android:strokeColor="#F6F7FA" android:strokeWidth="64" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M222,348 V222 H348 M652,222 H778 V348 M222,652 V778 H348 M652,778 H778 V652"/>
+    <path android:strokeColor="#F6F7FA" android:strokeWidth="64" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M300,650 C390,650 440,545 505,545 C570,545 640,640 700,650"/>
+    <path android:fillColor="#F5B942"
+        android:pathData="M600,324 A96,96 0 1 1 600,516 A96,96 0 1 1 600,324 Z"/>
+</vector>
