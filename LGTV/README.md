@@ -22,7 +22,7 @@ The TV never asks for a password. On the first start the app asks for the addres
    ```sh
    npm install
    npm run check                                   # every script parses as ES5, appinfo.json is complete
-   npm run package                                 # dist/org.picturestation.tv_0.1.0_all.ipk
+   npm run package                                 # dist/org.picturestation.tv_0.1.1_all.ipk
    npx ares-setup-device --add tv -i "host=192.168.1.50" -i "port=9922" -i "username=prisoner"
    npx ares-novacom --device tv --getkey           # asks for the passphrase from the Developer Mode app
    npm run install-tv
