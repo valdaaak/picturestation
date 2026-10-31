@@ -698,11 +698,13 @@ def api_download(ctx: Ctx):
     m = ctx.p["method"]
     if m not in ("getphoto", "getvideo"):
         return err(E_NO_PERM)
+    ua = ctx.req.headers.get("user-agent", "")[:100]  # video players (TV, phone) fetch with their own agent
     try:
         f = _media_from_id(ctx, ctx.p.get("id"))
     except ids.BadId:
         return err(E_DL_BAD)
     except ApiError as e:
+        log.warning("%s denied for %s (%s): id=%s", m, ctx.username or "no session", ua, ctx.p.get("id"))
         return err(E_DL_DENY if e.code == E_PHOTO_DENY else E_DL_BAD)
     # metoda musi sediet so skutocnym typom suboru (inak by getvideo obislo zakaz stahovania fotiek)
     if (m == "getvideo") != (f["kind"] == "video"):
@@ -712,6 +714,8 @@ def api_download(ctx: Ctx):
     if m == "getvideo" and ctx.p.get("variant") == "web":
         # pre prehliadac: original ak je mp4/webm, inak prekodovana verzia z @eaDir (ak ju NAS ma)
         web = media.web_video(f["rel"])
+        log.info("video %s for %s (%s): %s, range=%s", f["name"], ctx.username or "guest", ua,
+                 "converted mp4" if web else "original", ctx.req.headers.get("range", "-"))
         if web:
             return _send_file(ctx.req, web, "video/mp4", filename=f["name"].rsplit(".", 1)[0] + ".mp4")
     mime = MIME.get(media.ext_of(f["name"]), "application/octet-stream")
