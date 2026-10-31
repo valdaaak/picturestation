@@ -594,6 +594,10 @@ def api_photo(ctx: Ctx):
 def _send_file(req: Request, path: str, media_type: str, filename=None, cache=False):
     """Subor s podporou HTTP Range (video, velke originaly)."""
     st = os.stat(path)
+    if not os.access(path, os.R_OK):
+        # typically a file uploaded from a phone with owner-only permissions on the NAS
+        log.warning("cannot read %s: check the permissions on the NAS (others need read)", path)
+        return err(E_DL_DENY)
     size = st.st_size
     headers = {"Accept-Ranges": "bytes", "Last-Modified": time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime(st.st_mtime))}
     if cache:
