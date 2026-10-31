@@ -1,5 +1,7 @@
 # Picturestation
 
+<img src="docs/logo/final/lockup-light.png" alt="Picturestation" width="420">
+
 **A Photo Station 6 compatible photo gallery for Synology DSM 7.** [Slovensky](README.sk.md)
 
 Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works differently: it has no per-album rights for groups, no guest albums with passwords, and the DS photo app no longer connects. Picturestation brings that back. It is a small server that reads your photo folder read-only and offers:

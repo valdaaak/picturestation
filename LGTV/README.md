@@ -22,7 +22,7 @@ The TV never asks for a password. On the first start the app asks for the addres
    ```sh
    npm install
    npm run check                                   # every script parses as ES5, appinfo.json is complete
-   npm run package                                 # dist/org.picturestation.tv_0.1.1_all.ipk
+   npm run package                                 # dist/org.picturestation.tv_0.1.2_all.ipk
    npx ares-setup-device --add tv -i "host=192.168.1.50" -i "port=9922" -i "username=prisoner"
    npx ares-novacom --device tv --getkey           # asks for the passphrase from the Developer Mode app
    npm run install-tv
@@ -51,7 +51,7 @@ The Magic Remote has no Play and Pause keys (they are on its on-screen remote un
 
 ## Development
 
-The app also runs in a desktop browser: open `app/index.html` as a file. The server accepts the TV's session only from a webOS client (its user agent contains `WebAppManager`), so for a desktop test either set the browser's user agent to the TV's or stop at the pairing code. `server/tests/test_i18n.py` checks the translations of the app, `npm run check` parses every script as ES5 and checks `appinfo.json`. The icons and the splash screen are drawn by `tools/make_icons.py` (Pillow).
+The app also runs in a desktop browser: open `app/index.html` as a file. The server accepts the TV's session only from a webOS client (its user agent contains `WebAppManager`), so for a desktop test either set the browser's user agent to the TV's or stop at the pairing code. `server/tests/test_i18n.py` checks the translations of the app, `npm run check` parses every script as ES5 and checks `appinfo.json`. The icons and the splash screen come from `docs/logo/make_logo.py` (`python3 make_logo.py final c`), the logo of the project.
 
 The server side of the app is small: the DS photo API answers CORS requests from any origin without credentials, a webOS client may send its session in the `X-SYNO-TOKEN` header and as `PHPSESSID` in image URLs, and `/api/tv/code` and `/api/tv/poll` do the pairing (`server/picturestation/pairing.py`).
 

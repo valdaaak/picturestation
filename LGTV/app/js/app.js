@@ -3,7 +3,7 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.1";
+var APP_VERSION = "0.1.2";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 var STATE = { title: "", user: "", interval: 8, noTimeline: false, sortBy: "filename", sortDir: "asc" };

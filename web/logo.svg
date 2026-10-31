@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!-- Picturestation mark: a viewfinder with a sun and a hill. Same geometry as docs/logo/make_logo.py (C). -->
+  <rect width="1000" height="1000" rx="220" fill="#0f172a"/>
+  <g fill="none" stroke="#f6f7fa" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M222 348V222h126M652 222h126v126M222 652v126h126M652 778h126V652"/>
+    <path d="M300 650C390 650 440 545 505 545C570 545 640 640 700 650"/>
+  </g>
+  <circle cx="600" cy="420" r="96" fill="#f5b942"/>
+</svg>
