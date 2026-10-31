@@ -109,8 +109,8 @@ def splash():
 
 
 if __name__ == "__main__":
-    tile(80).save(os.path.join(HERE, "icon.png"))
-    tile(130).save(os.path.join(HERE, "largeIcon.png"))
+    tile(80).save(os.path.join(HERE, "icon-80.png"))
+    tile(130).save(os.path.join(HERE, "icon-130.png"))
     tile(512).save(os.path.join(HERE, "..", "tools", "icon-preview.png"))
     splash()
     print("icon.png, largeIcon.png, splash.png written to", os.path.normpath(HERE))
