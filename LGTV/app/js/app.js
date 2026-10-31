@@ -385,9 +385,26 @@ function viewerScreen(browse, index, autoplay) {
     if (state && ms) tagTimer = setTimeout(function () { playTag.className = "corner play hide"; }, ms);
   }
   var ov = el("div", "ov");
-  var name = el("div", "name"), meta = el("div", "meta");
+  var name = el("div", "name"), meta = el("div", "meta"), who = el("div", "who");
   ov.appendChild(name);
   ov.appendChild(meta);
+  ov.appendChild(who);  // people on the photo (from Synology Photos) and the place
+  var details = {};
+  function fetchDetails(i, item) {
+    function apply(info) {
+      if (cur !== i) return;
+      var parts = [];
+      if (info.people && info.people.length) parts.push(info.people.map(function (p) { return p.name; }).join(", "));
+      if (info.place) parts.push(info.place);
+      who.textContent = parts.join("   ·   ");
+    }
+    if (details[item.id]) { apply(details[item.id]); return; }
+    API.call("photo.php", "SYNO.PhotoStation.Photo", "getinfo", { id: item.id, additional: "tags" }, function (e, d) {
+      if (e || !d || !d[0] || !d[0].info) return;
+      details[item.id] = d[0].info;
+      apply(d[0].info);
+    });
+  }
   ov.appendChild(el("div", "hint", t("OK: details · Red: slideshow · Green: pause · Back: close")));
   node.appendChild(ov);
 
@@ -463,6 +480,8 @@ function viewerScreen(browse, index, autoplay) {
     counter.textContent = (i + 1) + " / " + list.length + (browse.hasMore() ? "+" : "");
     name.textContent = itemTitle(item);
     meta.textContent = fmtDate(item.info && item.info.takendate);
+    who.textContent = "";
+    fetchDetails(i, item);
     showOverlay();
     browse.focusMedia(i);
   }

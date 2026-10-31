@@ -239,8 +239,8 @@ if media.FFMPEG and media.FFPROBE:
     _store.db().execute("UPDATE meta SET data=json_remove(data, '$.rotation') WHERE path='2001/Maxim/rot.mp4'")
     if rp:
         os.remove(rp)
-    tvvideo.library_pass()
-    check("prechod kniznicou zaradi video nabok", tvvideo.process_now() == 1 and tvvideo.ready_path(fe), tvvideo._failed)
+    tvvideo.library_pass()  # finds the video without the flag, probes it and converts it right away
+    check("prechod kniznicou zaradi a prekoduje video nabok", bool(tvvideo.ready_path(fe)), tvvideo._failed)
 else:
     print("OK   video nabok preskocene (bez ffmpeg)")
 

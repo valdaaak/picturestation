@@ -48,6 +48,8 @@ html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hid
 .viewer .ov.hide { opacity: 0; }
 .viewer .ov .name { font-size: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .viewer .ov .meta { color: #cfd6de; font-size: 26px; margin-top: 6px; }
+.viewer .ov .who { color: #ffd37a; font-size: 28px; margin-top: 8px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; min-height: 36px; }
 .viewer .ov .hint { color: #9aa3ad; font-size: 22px; margin-top: 16px; }
 .viewer .corner { position: absolute; top: 30px; background: rgba(0, 0, 0, .55); padding: 6px 18px; border-radius: 10px;
   font-size: 26px; -webkit-transition: opacity .3s; transition: opacity .3s; }
