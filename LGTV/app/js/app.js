@@ -373,9 +373,17 @@ function viewerScreen(browse, index, autoplay) {
   node.appendChild(spinner);
   var counter = el("div", "corner counter");
   node.appendChild(counter);
-  var playTag = el("div", "corner play hide");  // a play triangle while the slideshow runs
+  var playTag = el("div", "corner play hide");  // a play triangle while the slideshow runs, two bars when paused
   playTag.appendChild(el("span", "tri"));
+  playTag.appendChild(el("span", "bars"));
   node.appendChild(playTag);
+  var tagTimer = null;
+  function showTag(state, ms) {
+    // state: "playing" | "paused" | "" ; ms > 0 hides it again after that time
+    if (tagTimer) { clearTimeout(tagTimer); tagTimer = null; }
+    playTag.className = "corner play" + (state ? " " + state : " hide");
+    if (state && ms) tagTimer = setTimeout(function () { playTag.className = "corner play hide"; }, ms);
+  }
   var ov = el("div", "ov");
   var name = el("div", "name"), meta = el("div", "meta");
   ov.appendChild(name);
@@ -475,9 +483,14 @@ function viewerScreen(browse, index, autoplay) {
   }
 
   function setPlaying(on) {
+    var was = playing;
     playing = on;
-    playTag.className = "corner play" + (on ? "" : " hide");
-    if (current && current.tagName === "VIDEO") { if (on) current.play(); else current.pause(); }
+    var video = current && current.tagName === "VIDEO";
+    if (video) { if (on) current.play(); else current.pause(); }
+    if (on) showTag("playing", 0);
+    else if (video) showTag("paused", 0);          // the frozen frame stays marked
+    else if (was) showTag("paused", 3000);         // a stopped slideshow of photos: brief note
+    else showTag("", 0);
     if (on) schedule(); else if (timer) { clearTimeout(timer); timer = null; }
   }
 
@@ -512,7 +525,10 @@ function viewerScreen(browse, index, autoplay) {
       if (code === KEY.RIGHT || code === KEY.FF && !seek(10)) { show(cur + 1); return true; }
       if (code === KEY.REW || code === KEY.FF) return true;
       if (code === KEY.OK) {
-        if (current && current.tagName === "VIDEO") { if (current.paused) current.play(); else current.pause(); }
+        if (current && current.tagName === "VIDEO") {
+          if (current.paused) { current.play(); showTag(playing ? "playing" : "", 0); }
+          else { current.pause(); showTag("paused", 0); }
+        }
         toggleOverlay();
         return true;
       }
