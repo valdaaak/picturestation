@@ -11,6 +11,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY server/picturestation /opt/picturestation/picturestation
+COPY web /opt/picturestation/web
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/picturestation-user /usr/local/bin/picturestation-user
 RUN chmod 755 /usr/local/bin/entrypoint.sh /usr/local/bin/picturestation-user \

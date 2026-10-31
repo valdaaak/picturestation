@@ -4,6 +4,7 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Repository layout: the web gallery moved from `server/picturestation/web` to `web/` at the top of the repository. The installers and the Docker image put it in `/opt/picturestation/web`; `PICTURESTATION_WEB_DIR` points the server elsewhere. An update with `install.sh --update` handles it; a hand-made copy of the code must now include `web/` too.
 - Viewer: typing a comment no longer triggers the viewer keys ("i" hid the details panel, arrows switched the photo).
 - Access editor: "Allow all inside" allows an album and removes the principal's own rules in its sub-albums in one step (a confirmation lists them); group rules stay. After Allow/Exclude the album list and the Settings page stay where they were scrolled.
 - Live Photos: an iPhone photo (HEIC/JPG) and its short .MOV with the same name in the same folder are one item. The video is left out of albums, the timeline, search and collections; the photo has a LIVE badge, its motion plays in the grid when the mouse rests on it, and over the photo in the viewer (mouse over LIVE, or a tap). The video can be downloaded from the photo details and goes with the photo in a share link. Videos longer than 5 seconds stay separate. Settings, General: on by default, can be turned off per gallery.

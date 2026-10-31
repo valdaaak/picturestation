@@ -3,7 +3,23 @@
 import hashlib
 import os
 
-WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
+from .config import env
+
+
+def _find_web_dir() -> str:
+    """Folder of the web gallery: PICTURESTATION_WEB_DIR, else web/ at the top of the repository
+    (development, next to server/) or next to the package (installed: /opt/picturestation/web, Docker)."""
+    forced = env("WEB_DIR")
+    if forced:
+        return forced
+    here = os.path.dirname(os.path.abspath(__file__))
+    for cand in (os.path.join(here, "..", "..", "web"), os.path.join(here, "..", "web")):
+        if os.path.isfile(os.path.join(cand, "index.html")):
+            return os.path.normpath(cand)
+    raise RuntimeError("web gallery folder not found (web/index.html); set PICTURESTATION_WEB_DIR")
+
+
+WEB_DIR = _find_web_dir()
 
 
 def _compute() -> str:

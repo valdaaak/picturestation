@@ -5,7 +5,8 @@ import os
 import re
 import sys
 
-WEB = os.path.join(os.path.dirname(__file__), "..", "picturestation", "web")
+WEB = os.path.join(os.path.dirname(__file__), "..", "..", "web")
+PKG = os.path.join(os.path.dirname(__file__), "..", "picturestation")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 fails = 0
 
@@ -62,7 +63,7 @@ print("unused translations:", unused)
 
 # server side: every message raised in admin.py/app.py has a Slovak translation
 from picturestation import i18n  # noqa: E402
-srv = "".join(read(os.path.join("..", f)) for f in ("admin.py", "app.py", "galleries.py"))
+srv = "".join(read(os.path.join(PKG, f)) for f in ("admin.py", "app.py", "galleries.py"))
 msgs = (set(re.findall(r'AdminError\("([^"]+)"', srv)) | set(re.findall(r'i18n\.tr\("([^"]+)"', srv))
         | set(re.findall(r'GalleryError\("([^"]+)"', srv)))
 miss = sorted(x for x in msgs if x not in i18n.SK)

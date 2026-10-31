@@ -284,7 +284,9 @@ The browser checks in `server/tests/*_check.py` use Playwright with Microsoft Ed
 
 The protocol that the DS photo app expects is described in [docs/protocol.md](docs/protocol.md).
 
-**Translations.** Web texts are in English in the code, with Slovak in `server/picturestation/web/i18n.js`. Server messages are in `server/picturestation/i18n.py`. A new language needs a dictionary in each of these files and its code in the language checks there.
+**Layout.** The server is the Python package in `server/picturestation`, the web gallery is `web/` (HTML, CSS, JS; installed to `/opt/picturestation/web`, or wherever `PICTURESTATION_WEB_DIR` points), the installers are in `install/`.
+
+**Translations.** Web texts are in English in the code, with Slovak in `web/i18n.js`. Server messages are in `server/picturestation/i18n.py`. A new language needs a dictionary in each of these files and its code in the language checks there.
 
 ## License
 

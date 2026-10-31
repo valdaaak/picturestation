@@ -953,7 +953,7 @@ async def webapi(req: Request):
     return resp
 
 
-WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
+from .web_version import WEB_DIR  # web/ at the top of the repository, or /opt/picturestation/web
 
 
 class WebFiles(StaticFiles):

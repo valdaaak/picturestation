@@ -30,7 +30,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 1; }
-[ -f "$SRC/server/picturestation/app.py" ] || { echo "source tree not found in $SRC" >&2; exit 1; }
+[ -f "$SRC/server/picturestation/app.py" ] && [ -f "$SRC/web/index.html" ] || { echo "source tree not found in $SRC" >&2; exit 1; }
 case "$PORT" in *[!0-9]*|"") echo "bad port: $PORT" >&2; exit 2 ;; esac
 case "$PHOTOS" in /*) ;; *) echo "--photos must be an absolute path" >&2; exit 2 ;; esac
 
@@ -63,8 +63,9 @@ if [ ! -s "$G/cities500.txt" ]; then
 fi
 
 echo "== code"
-rm -rf /opt/picturestation/picturestation
+rm -rf /opt/picturestation/picturestation /opt/picturestation/web
 cp -r "$SRC/server/picturestation" /opt/picturestation/
+cp -r "$SRC/web" /opt/picturestation/
 find /opt/picturestation -name __pycache__ -prune -exec rm -rf {} +
 install -m 644 "$SRC/install/picturestation.service" /etc/systemd/system/picturestation.service
 install -m 755 "$SRC/install/picturestation-user" /usr/local/bin/picturestation-user
