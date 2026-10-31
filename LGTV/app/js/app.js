@@ -283,10 +283,11 @@ function browseScreen(where) {
     };
     if (latest) {
       API.call("photo.php", "SYNO.PhotoStation.Photo", "list", { type: "photo,video", offset: loaded, limit: PAGE,
-        sort_by: "takendate", sort_direction: "desc", additional: "thumb_size" }, cb);
+        sort_by: "takendate", sort_direction: "desc", additional: "thumb_size,video_codec" }, cb);
     } else {
       API.call("album.php", "SYNO.PhotoStation.Album", "list", { id: isRoot ? null : where.id, type: "album,photo,video",
-        offset: loaded, limit: PAGE, sort_by: STATE.sortBy, sort_direction: STATE.sortDir, additional: "thumb_size" }, cb);
+        offset: loaded, limit: PAGE, sort_by: STATE.sortBy, sort_direction: STATE.sortDir,
+        additional: "thumb_size,video_codec" }, cb);
     }
   }
 
@@ -432,6 +433,10 @@ function viewerScreen(browse, index, autoplay) {
       v.src = API.video(item);
       stage.appendChild(v);
       current = v;
+      var vc = item.additional && item.additional.video_codec;
+      if (vc && (vc.rotation === 90 || vc.rotation === 180 || vc.rotation === 270) && vc.tv_version !== "ready") {
+        UI.toast(t("The upright copy of this video is being prepared; playing the original for now."), 6000);
+      }
     } else {
       var im = el("img", "full");
       im.onload = function () { spinner.setAttribute("hidden", ""); schedule(); };

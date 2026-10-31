@@ -195,6 +195,55 @@ check("video pre web = prekodovane mp4", r.headers["content-type"] == "video/mp4
 r = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1", "id": vid})
 check("video original = avi", r.content.startswith(b"RIFF"), r.content[:10])
 
+# --- video nabok (priznak otocenia z mobilu): pre telku vznikne otocena kopia (variant=tv) ---
+from picturestation import media, tvvideo  # noqa: E402
+if media.FFMPEG and media.FFPROBE:
+    import subprocess  # noqa: E402
+    vrot = os.path.join(vdir, "rot.mp4")
+    plain = os.path.join(WORK, "plain.mp4")
+    subprocess.run([media.FFMPEG, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "1",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", plain], check=True)
+    # the rotation flag the way a phone sets it (display matrix), frames stay 160x90 on their side
+    subprocess.run([media.FFMPEG, "-v", "error", "-y", "-display_rotation", "90", "-i", plain, "-c", "copy", vrot], check=True)
+    media._dir_cache.clear()
+    rid = ids.item_id("video", "2001/Maxim/rot.mp4")
+    r = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=rid, additional="video_codec")
+    vc = r["data"][0]["additional"]["video_codec"]
+    check("video nabok: rotation v metadatach, kopia caka", vc.get("rotation") in (90, 270) and vc.get("tv_version") == "waiting", vc)
+    check("video nabok: rozmery uz otocene", (vc["resolutionx"], vc["resolutiony"]) == (90, 160), vc)
+    r = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                          "id": rid, "variant": "tv"})
+    check("variant=tv pred prekodovanim = original + hlavicka preparing", r.status_code == 200
+          and r.headers.get("x-picturestation-video") == "preparing" and len(r.content) == os.path.getsize(vrot), dict(r.headers))
+    tvvideo.MIN_FREE_BYTES = 0  # the test library may sit in a small tmpfs
+    n = tvvideo.process_now()
+    fe = media.file_entry("2001/Maxim/rot.mp4")
+    rp = tvvideo.ready_path(fe)
+    check("otocena kopia vyrobena", n == 1 and rp, (n, rp, tvvideo._failed))
+    pr = media._probe_video(rp) if rp else {}
+    check("kopia stoji rovno: 90x160, h264, bez priznaku", (pr.get("w"), pr.get("h"), pr.get("vcodec"), pr.get("rotation")) == (90, 160, "h264", 0), pr)
+    r = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                          "id": rid, "variant": "tv"})
+    check("variant=tv = otocena kopia", r.headers["content-type"] == "video/mp4" and "x-picturestation-video" not in r.headers
+          and len(r.content) == os.path.getsize(tvvideo.ready_path(fe)), dict(r.headers))
+    r = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                          "id": rid, "variant": "web"})
+    check("variant=web ostava original", len(r.content) == os.path.getsize(vrot), len(r.content))
+    r = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=rid, additional="video_codec")
+    check("tv_version = ready", r["data"][0]["additional"]["video_codec"]["tv_version"] == "ready", r["data"][0]["additional"])
+    r = c.get(W + "download.php", params={"api": "SYNO.PhotoStation.Download", "method": "getvideo", "version": "1",
+                                          "id": vid, "variant": "tv"})
+    check("video bez priznaku: variant=tv = ako web", b"ftypmp42" in r.content and "x-picturestation-video" not in r.headers, dict(r.headers))
+    # library pass: a video indexed without the flag is probed and queued
+    from picturestation import store as _store  # noqa: E402
+    _store.db().execute("UPDATE meta SET data=json_remove(data, '$.rotation') WHERE path='2001/Maxim/rot.mp4'")
+    if rp:
+        os.remove(rp)
+    tvvideo.library_pass()
+    check("prechod kniznicou zaradi video nabok", tvvideo.process_now() == 1 and tvvideo.ready_path(fe), tvvideo._failed)
+else:
+    print("OK   video nabok preskocene (bez ffmpeg)")
+
 # --- administracia ---
 def adm(op, body=None, client=None):
     cl = client or c

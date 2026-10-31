@@ -16,7 +16,7 @@ from starlette.responses import RedirectResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from . import admin, catalog, config, geo, i18n, ids, media, pairing, store
+from . import admin, catalog, config, geo, i18n, ids, media, pairing, store, tvvideo
 
 log = logging.getLogger("picturestation.api")
 
@@ -260,10 +260,12 @@ def media_item(ctx: Ctx, f: dict, m=None) -> dict:
             info["live"] = ids.item_id("video", motion)  # Live Photo: id of its motion video
     else:
         info["duration"] = str(m.get("duration", 0))
+        rotation = m.get("rotation")  # None = not known yet (indexed before the flag was recorded)
         add["video_codec"] = {"container": m.get("container", ""), "vcodec": m.get("vcodec", ""),
                               "acodec": m.get("acodec", ""), "resolutionx": m.get("w", 0),
                               "resolutiony": m.get("h", 0), "video_bitrate": m.get("vbitrate", 0),
-                              "audio_bitrate": m.get("abitrate", 0)}
+                              "audio_bitrate": m.get("abitrate", 0), "rotation": rotation,
+                              "tv_version": tvvideo.status(f, rotation) if rotation is not None else "unknown"}
         add["video_quality"] = []
     return {"id": ids.item_id(kind, rel), "type": kind,
             "thumbnail_status": "small,large" if has_thumb else "default",
@@ -715,13 +717,28 @@ def api_download(ctx: Ctx):
         return err(E_DL_BAD)
     if f["kind"] == "photo" and not ctx.r["download"]:
         return err(E_DL_DENY)  # videa ostavaju (prehravanie ide tou istou cestou)
-    if m == "getvideo" and ctx.p.get("variant") == "web":
+    if m == "getvideo" and ctx.p.get("variant") in ("web", "tv"):
+        extra = {}
+        if ctx.p.get("variant") == "tv":
+            # the LG TV app: a sideways video (rotation flag) gets an upright copy, made in the background
+            tv = tvvideo.ready_path(f)
+            if tv:
+                return _send_file(ctx.req, tv, "video/mp4", filename=f["name"].rsplit(".", 1)[0] + ".mp4")
+            if tvvideo.needs_copy(f):
+                tvvideo.request(f)
+                extra = {"X-Picturestation-Video": "preparing"}
         # pre prehliadac: original ak je mp4/webm, inak prekodovana verzia z @eaDir (ak ju NAS ma)
         web = media.web_video(f["rel"])
         log.info("video %s for %s (%s): %s, range=%s", f["name"], ctx.username or "guest", ua,
                  "converted mp4" if web else "original", ctx.req.headers.get("range", "-"))
         if web:
-            return _send_file(ctx.req, web, "video/mp4", filename=f["name"].rsplit(".", 1)[0] + ".mp4")
+            resp = _send_file(ctx.req, web, "video/mp4", filename=f["name"].rsplit(".", 1)[0] + ".mp4")
+            resp.headers.update(extra)
+            return resp
+        mime = MIME.get(media.ext_of(f["name"]), "application/octet-stream")
+        resp = _send_file(ctx.req, ids.abs_path(f["rel"]), mime, filename=f["name"])
+        resp.headers.update(extra)
+        return resp
     mime = MIME.get(media.ext_of(f["name"]), "application/octet-stream")
     return _send_file(ctx.req, ids.abs_path(f["rel"]), mime, filename=f["name"])
 
@@ -1051,6 +1068,7 @@ async def lifespan(_app):
     media.start_indexer()
     from . import synosync
     synosync.start()
+    tvvideo.start()
     yield
 
 

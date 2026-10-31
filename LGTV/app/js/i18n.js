@@ -29,6 +29,8 @@ var I18N_SK = {
   "{n} items": ["{n} položka", "{n} položky", "{n} položiek"],
   "No date": "Bez dátumu",
   "The video could not be played.": "Video sa nedá prehrať.",
+  "The upright copy of this video is being prepared; playing the original for now.":
+    "Otočená kópia videa sa pripravuje, zatiaľ hrá originál.",
   "The photo could not be loaded.": "Fotka sa nedá načítať.",
   "Slideshow": "Prezentácia",
   "OK: details · Red: slideshow · Green: pause · Back: close":

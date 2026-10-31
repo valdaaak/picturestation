@@ -45,6 +45,8 @@ The TV never asks for a password. On the first start the app asks for the addres
 | Channel up / down | a page of tiles | |
 | Rewind, Fast forward | | 10 s in a video, otherwise previous / next |
 
+**Videos recorded sideways.** Phones record portrait videos lying on their side and only set a rotation flag, which the TV's player ignores. The server therefore keeps an upright copy of such videos (made by ffmpeg in the background, at most 1080p) and the app plays that one. Right after the server is installed or updated, the copies are still being made, newest folders first; until a copy exists the app plays the original and says so.
+
 The Magic Remote has no Play and Pause keys (they are on its on-screen remote under the "…" key), so the red and green keys do the same. The slideshow interval is under **Settings** on the first screen (3 to 30 seconds). A video plays whole; in a slideshow the next item follows when it ends. Videos come the same way as in the browser: the MP4 original, or the conversion the NAS keeps in `@eaDir`.
 
 ## Development

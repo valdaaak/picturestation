@@ -62,9 +62,10 @@ var API = {
     return u;
   },
 
+  // variant=tv: a sideways video (rotation flag, which the TV's player ignores) comes as an upright copy
   video: function (item) {
     return this.server + "/photo/webapi/download.php?api=SYNO.PhotoStation.Download&method=getvideo&version=1&id="
-      + encodeURIComponent(item.id) + "&variant=web" + (this.sid ? "&PHPSESSID=" + encodeURIComponent(this.sid) : "");
+      + encodeURIComponent(item.id) + "&variant=tv" + (this.sid ? "&PHPSESSID=" + encodeURIComponent(this.sid) : "");
   }
 };
 

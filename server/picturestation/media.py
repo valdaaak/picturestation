@@ -260,6 +260,32 @@ def _exiftool_meta(path: str) -> dict:
     return d
 
 
+def _stream_rotation(s: dict) -> int:
+    """Rotation a player has to apply to the frames of a video stream (phones record sideways and only set a
+    flag): 0, 90, 180 or 270. From the display matrix (side data) or the older 'rotate' tag."""
+    rot = (s.get("tags") or {}).get("rotate")
+    for sd in s.get("side_data_list", []) or []:
+        rot = sd.get("rotation", rot)
+    try:
+        return int(round(float(rot or 0))) % 360 if rot is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
+
+def probe_rotation(path: str) -> int:
+    """Rotation flag of a video file (0 when there is none or the file cannot be read)."""
+    if not FFPROBE:
+        return 0
+    try:
+        out = subprocess.run([FFPROBE, "-v", "error", "-select_streams", "v:0", "-print_format", "json",
+                              "-show_streams", path], capture_output=True, timeout=60).stdout
+        streams = json.loads(out or b"{}").get("streams") or []
+        return _stream_rotation(streams[0]) if streams else 0
+    except Exception as e:
+        log.debug("ffprobe rotation %s: %s", path, e)
+        return 0
+
+
 def _probe_video(path: str) -> dict:
     d = {"w": 0, "h": 0, "duration": 0}
     if not FFPROBE:
@@ -276,14 +302,9 @@ def _probe_video(path: str) -> dict:
             if s.get("codec_type") == "video" and not d["w"]:
                 d.update(w=int(s.get("width") or 0), h=int(s.get("height") or 0), vcodec=s.get("codec_name", ""),
                          vbitrate=int(s.get("bit_rate") or 0))
-                rot = (s.get("tags") or {}).get("rotate")
-                for sd in s.get("side_data_list", []) or []:
-                    rot = sd.get("rotation", rot)
-                try:
-                    if rot and abs(int(float(rot))) in (90, 270):
-                        d["w"], d["h"] = d["h"], d["w"]
-                except ValueError:
-                    pass
+                d["rotation"] = _stream_rotation(s)
+                if d["rotation"] in (90, 270):
+                    d["w"], d["h"] = d["h"], d["w"]
                 ct = ct or (s.get("tags") or {}).get("creation_time")
             elif s.get("codec_type") == "audio" and "acodec" not in d:
                 d.update(acodec=s.get("codec_name", ""), abitrate=int(s.get("bit_rate") or 0))
