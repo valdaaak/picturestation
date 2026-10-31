@@ -11,12 +11,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.picturestation.app.data.Api
 import org.picturestation.app.data.Item
 import org.picturestation.app.data.Store
+import org.picturestation.app.data.Updater
 
 /** Where a Browse screen looks: the root, the newest photos, or an album. */
 data class Where(val album: Item? = null, val latest: Boolean = false)
@@ -180,6 +183,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun details(item: Item): Item? {
         detailCache[item.id]?.let { return it }
         return try { api.details(item.id)?.also { detailCache[item.id] = it } } catch (e: Api.ApiException) { null }
+    }
+
+    // ---------- updates from the server (/app/version.json) ----------
+    var update by mutableStateOf<Updater.Info?>(null)     // a newer version on the server
+    var updateNote by mutableStateOf<String?>(null)       // result of a check started by the user
+    var updateBusy by mutableStateOf(false)
+    private var updateChecked = false
+    fun checkUpdate(byUser: Boolean, latestNote: String, noneNote: String) {
+        if (!byUser && updateChecked) return
+        updateChecked = true
+        viewModelScope.launch {
+            if (!byUser) delay(2500)  // not in the way of the first list
+            val info = withContext(Dispatchers.IO) { Updater.check(api) }
+            update = info?.takeIf { it.versionCode > BuildConfig.VERSION_CODE }
+            if (byUser) updateNote = when { info == null -> noneNote; update == null -> latestNote; else -> null }
+        }
+    }
+    fun installUpdate(ctx: android.content.Context, permissionNote: String, failedNote: String) {
+        val info = update ?: return
+        if (!Updater.canInstall(ctx)) { message = permissionNote; Updater.openInstallPermission(ctx); return }
+        updateBusy = true
+        viewModelScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) { Updater.download(ctx, api, info) }
+                Updater.install(ctx, file)
+            } catch (e: Exception) {
+                Log.w(TAG, "update failed: $e"); message = failedNote
+            }
+            updateBusy = false
+        }
     }
 
     // ---------- settings ----------

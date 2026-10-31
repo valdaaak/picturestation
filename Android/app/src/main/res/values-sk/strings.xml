@@ -39,4 +39,12 @@
     <string name="details">Detaily</string>
     <string name="play">Prehrať</string>
     <string name="pause">Pauza</string>
+    <string name="update_available">Je k dispozícii nová verzia %1$s.</string>
+    <string name="update_now">Aktualizovať</string>
+    <string name="update_downloading">Sťahujem…</string>
+    <string name="update_check">Skontrolovať aktualizácie</string>
+    <string name="update_latest">Máš najnovšiu verziu.</string>
+    <string name="update_none">Server neponúka aktualizáciu.</string>
+    <string name="update_permission">Povoľ Picturestation inštalovať aktualizácie a potom ťukni na Aktualizovať znova.</string>
+    <string name="update_failed">Aktualizáciu sa nepodarilo stiahnuť.</string>
 </resources>

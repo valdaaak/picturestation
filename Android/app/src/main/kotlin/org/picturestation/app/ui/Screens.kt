@@ -177,6 +177,20 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         HorizontalDivider(color = NavyLight)
         SettingRow(stringResource(R.string.app_version), BuildConfig.VERSION_NAME)
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        val latestNote = stringResource(R.string.update_latest)
+        val noneNote = stringResource(R.string.update_none)
+        val permissionNote = stringResource(R.string.update_permission)
+        val updateFailed = stringResource(R.string.update_failed)
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(vm.updateNote ?: vm.update?.let { stringResource(R.string.update_available, it.versionName) } ?: "", color = Muted,
+                modifier = Modifier.weight(1f))
+            if (vm.update != null) Button(onClick = { vm.installUpdate(ctx, permissionNote, updateFailed) }, enabled = !vm.updateBusy) {
+                Text(stringResource(if (vm.updateBusy) R.string.update_downloading else R.string.update_now))
+            } else TextButton(onClick = { vm.checkUpdate(byUser = true, latestNote, noneNote) }) { Text(stringResource(R.string.update_check)) }
+        }
+        HorizontalDivider(color = NavyLight)
         Spacer(Modifier.height(24.dp))
         OutlinedButton(onClick = { vm.signOut() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
         Spacer(Modifier.height(12.dp))

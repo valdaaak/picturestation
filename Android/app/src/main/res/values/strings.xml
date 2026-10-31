@@ -40,4 +40,12 @@
     <string name="details">Details</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
+    <string name="update_available">New version %1$s is available.</string>
+    <string name="update_now">Update</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_latest">You have the latest version.</string>
+    <string name="update_none">The server offers no update.</string>
+    <string name="update_permission">Allow Picturestation to install updates, then tap Update again.</string>
+    <string name="update_failed">The update could not be downloaded.</string>
 </resources>

@@ -51,6 +51,15 @@ connection unnoticed. Inside your own network http is fine.
 - **Android TV:** turn on Developer options and network debugging on the TV, then
   `adb connect <tv-ip>:5555` and `adb install -r app-debug.apk`. The app appears in the TV's launcher with its banner.
 
+## Updates
+
+The app checks `https://your-gallery/app/version.json` after the start and under **Settings, Check for
+updates**. A newer `versionCode` shows a bar with an Update button: the APK next to it is downloaded and
+handed to Android's installer (the first time Android asks to allow installs from Picturestation). To
+publish a version: raise `versionCode` and `versionName` in `app/build.gradle.kts`, build the release,
+run `python3 publish.py some/folder` and put that folder's `Picturestation.apk` and `version.json` into
+`DATA/app/` on the server.
+
 ## Tested
 
 Android 16 emulators, phone and Android TV, against the demo library: pairing, albums, viewer with

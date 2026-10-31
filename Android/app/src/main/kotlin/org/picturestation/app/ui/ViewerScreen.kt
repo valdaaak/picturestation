@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.focusable
@@ -166,10 +167,12 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))).padding(20.dp),
             ) {
-                Text(current?.title ?: "", color = Paper, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(formatTaken(current?.taken, slovak, noDate), color = Color(0xFFCFD6DE))
+                val big = vm.isTv
+                Text(current?.title ?: "", color = Paper, fontSize = if (big) 28.sp else 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(formatTaken(current?.taken, slovak, noDate), color = Color(0xFFCFD6DE), fontSize = if (big) 22.sp else 13.sp)
                 val who = listOfNotNull(details?.people?.takeIf { it.isNotEmpty() }?.joinToString(", "), details?.place)
-                if (who.isNotEmpty()) Text(who.joinToString("   ·   "), color = Color(0xFFFFD37A), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (who.isNotEmpty()) Text(who.joinToString("   ·   "), color = Color(0xFFFFD37A), fontSize = if (big) 22.sp else 13.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         } else if (playing) {
             Icon(Icons.Filled.PlayArrow, null, tint = Focus, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp))

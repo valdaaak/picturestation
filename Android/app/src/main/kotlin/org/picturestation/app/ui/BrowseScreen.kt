@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,8 +46,10 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import org.picturestation.app.AppViewModel
 import org.picturestation.app.BrowseState
@@ -70,7 +73,15 @@ fun BrowseScreen(
     val specials = if (isRoot && vm.showLatest) 1 else 0
     val grid = rememberLazyGridState(initialFirstVisibleItemIndex = st.firstVisible + specials)
 
-    LaunchedEffect(Unit) { if (st.items.isEmpty()) vm.load(st, sessionEnded, passwordNote, failed, network) }
+    val latestNote = stringResource(R.string.update_latest)
+    val noneNote = stringResource(R.string.update_none)
+    val permissionNote = stringResource(R.string.update_permission)
+    val updateFailed = stringResource(R.string.update_failed)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        if (st.items.isEmpty()) vm.load(st, sessionEnded, passwordNote, failed, network)
+        if (isRoot) vm.checkUpdate(byUser = false, latestNote, noneNote)
+    }
     LaunchedEffect(grid) {
         snapshotFlow { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0 }.collect { last ->
             if (last >= st.items.size + specials - 40) vm.load(st, sessionEnded, passwordNote, failed, network)
@@ -90,7 +101,10 @@ fun BrowseScreen(
         containerColor = Navy,
         topBar = {
             TopAppBar(
-                title = { Column { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(count, style = MaterialTheme.typography.labelMedium, color = Muted) } },
+                title = { Column {
+                    Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = if (vm.isTv) 28.sp else 19.sp)
+                    Text(count, fontSize = if (vm.isTv) 16.sp else 12.sp, color = Muted)
+                } },
                 navigationIcon = { if (!isRoot) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } },
                 actions = {
                     if (mediaCount > 0) IconButton(onClick = { onOpenMedia(0, true) }) { Icon(Icons.Filled.PlayArrow, stringResource(R.string.slideshow)) }
@@ -101,7 +115,19 @@ fun BrowseScreen(
         },
     ) { pad ->
         val cell = if (vm.isTv) 200.dp else 112.dp
-        Box(modifier = Modifier.fillMaxSize().padding(pad)) {
+        Column(modifier = Modifier.fillMaxSize().padding(pad)) {
+        val upd = vm.update
+        if (isRoot && upd != null) Row(
+            modifier = Modifier.fillMaxWidth().background(Color(0xFF263040)).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.update_available, upd.versionName), color = Paper, modifier = Modifier.weight(1f),
+                fontSize = if (vm.isTv) 22.sp else 14.sp)
+            androidx.compose.material3.Button(onClick = { vm.installUpdate(ctx, permissionNote, updateFailed) }, enabled = !vm.updateBusy) {
+                Text(stringResource(if (vm.updateBusy) R.string.update_downloading else R.string.update_now))
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(cell), state = grid,
                 contentPadding = PaddingValues(if (vm.isTv) 32.dp else 4.dp),
@@ -111,8 +137,10 @@ fun BrowseScreen(
                     Tile(tv = vm.isTv, onClick = onOpenLatest) {
                         Column(modifier = Modifier.fillMaxSize().background(Color(0xFF263040)),
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(40.dp), tint = Paper)
-                            Text(stringResource(R.string.latest_photos), modifier = Modifier.padding(top = 8.dp), color = Paper)
+                            Icon(Icons.Filled.Schedule, null, modifier = Modifier.size(if (vm.isTv) 48.dp else 28.dp), tint = Paper)
+                            Text(stringResource(R.string.latest_photos), modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp),
+                                color = Paper, fontSize = if (vm.isTv) 26.sp else 13.sp, lineHeight = if (vm.isTv) 30.sp else 15.sp,
+                                textAlign = TextAlign.Center)
                         }
                     }
                 }
@@ -126,9 +154,10 @@ fun BrowseScreen(
                             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                         )
                         if (it.type == "album") Text(
-                            it.title, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Paper,
+                            it.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper,
+                            fontSize = if (vm.isTv) 24.sp else 12.sp, lineHeight = if (vm.isTv) 28.sp else 14.sp,
                             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                                .background(Color(0x99000000)).padding(horizontal = 8.dp, vertical = 4.dp),
+                                .background(Color(0x99000000)).padding(horizontal = if (vm.isTv) 12.dp else 6.dp, vertical = if (vm.isTv) 6.dp else 3.dp),
                         )
                         if (it.type == "video") Text(
                             duration(it.durationMs), color = Paper, style = MaterialTheme.typography.labelSmall,
@@ -142,6 +171,7 @@ fun BrowseScreen(
             if (!st.loading && st.error == null && st.items.isEmpty() && specials == 0)
                 Text(stringResource(R.string.no_photos), color = Muted, modifier = Modifier.align(Alignment.Center))
             if (st.loading && st.items.isEmpty()) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
         }
     }
 }
