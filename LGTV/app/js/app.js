@@ -352,7 +352,7 @@ function browseScreen(where) {
       if (code === KEY.CH_UP) { setFocusIdx(Math.max(0, focus - COLS * ROWS_VISIBLE)); return true; }
       if (code === KEY.CH_DOWN) { setFocusIdx(Math.min(entries.length - 1, focus + COLS * ROWS_VISIBLE)); return true; }
       if (code === KEY.OK) { activate(); return true; }
-      if (code === KEY.PLAY && media.length) {
+      if ((code === KEY.PLAY || code === KEY.RED) && media.length) {  // the Magic Remote has no Play key
         var m = entries[focus].media;
         UI.push(viewerScreen(self, m === undefined ? 0 : m, true));
         return true;
@@ -378,7 +378,7 @@ function viewerScreen(browse, index, autoplay) {
   var name = el("div", "name"), meta = el("div", "meta");
   ov.appendChild(name);
   ov.appendChild(meta);
-  ov.appendChild(el("div", "hint", t("OK: details · Play: slideshow · Back: close")));
+  ov.appendChild(el("div", "hint", t("OK: details · Red: slideshow · Green: pause · Back: close")));
   node.appendChild(ov);
 
   var list = browse.media;
@@ -510,8 +510,8 @@ function viewerScreen(browse, index, autoplay) {
         toggleOverlay();
         return true;
       }
-      if (code === KEY.PLAY) { setPlaying(!playing); return true; }
-      if (code === KEY.PAUSE || code === KEY.STOP) { setPlaying(false); return true; }
+      if (code === KEY.PLAY || code === KEY.RED) { setPlaying(!playing); return true; }
+      if (code === KEY.PAUSE || code === KEY.STOP || code === KEY.GREEN) { setPlaying(false); return true; }
       if (code === KEY.UP || code === KEY.DOWN) { toggleOverlay(); return true; }
       return false;
     }

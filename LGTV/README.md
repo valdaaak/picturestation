@@ -40,12 +40,12 @@ The TV never asks for a password. On the first start the app asks for the addres
 |---|---|---|
 | Arrows, OK | move, open | previous / next; OK shows or hides the details |
 | Back | one level up; on the first screen leaves the app | back to the album |
-| Play | slideshow from the selected photo | start or stop the slideshow |
-| Pause, Stop | | stop the slideshow, pause a video |
+| Red, or Play | slideshow from the selected photo | start or stop the slideshow |
+| Green, or Pause, Stop | | stop the slideshow, pause a video |
 | Channel up / down | a page of tiles | |
 | Rewind, Fast forward | | 10 s in a video, otherwise previous / next |
 
-The slideshow interval is under **Settings** on the first screen (3 to 30 seconds). A video plays whole; in a slideshow the next item follows when it ends. Videos come the same way as in the browser: the MP4 original, or the conversion the NAS keeps in `@eaDir`.
+The Magic Remote has no Play and Pause keys (they are on its on-screen remote under the "…" key), so the red and green keys do the same. The slideshow interval is under **Settings** on the first screen (3 to 30 seconds). A video plays whole; in a slideshow the next item follows when it ends. Videos come the same way as in the browser: the MP4 original, or the conversion the NAS keeps in `@eaDir`.
 
 ## Development
 

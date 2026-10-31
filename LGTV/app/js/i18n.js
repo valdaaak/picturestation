@@ -31,7 +31,8 @@ var I18N_SK = {
   "The video could not be played.": "Video sa nedá prehrať.",
   "The photo could not be loaded.": "Fotka sa nedá načítať.",
   "Slideshow": "Prezentácia",
-  "OK: details · Play: slideshow · Back: close": "OK: detaily · Play: prezentácia · Back: zavrieť",
+  "OK: details · Red: slideshow · Green: pause · Back: close":
+    "OK: detaily · Červené: prezentácia · Zelené: pauza · Back: zavrieť",
   "Server": "Server",
   "Signed in as": "Prihlásený ako",
   "Slideshow interval": "Interval prezentácie",
