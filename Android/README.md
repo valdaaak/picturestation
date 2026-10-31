@@ -46,6 +46,8 @@ connection unnoticed. Inside your own network http is fine.
 ## Install
 
 - **Phone:** copy the APK to the phone and open it (allow installing from that app), or `adb install -r app-debug.apk`.
+  The server can hand it out itself: put the APK into `DATA/app/` (`/var/lib/picturestation/app/`) and open
+  `https://your-gallery/app/Picturestation.apk` on the phone.
 - **Android TV:** turn on Developer options and network debugging on the TV, then
   `adb connect <tv-ip>:5555` and `adb install -r app-debug.apk`. The app appears in the TV's launcher with its banner.
 
