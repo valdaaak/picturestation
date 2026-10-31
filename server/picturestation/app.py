@@ -938,8 +938,7 @@ def dispatch(req: Request, p: dict, sid):
 # CORS for the LG TV app (LGTV/): a packaged webOS web app has no web origin, so the API allows any origin,
 # without credentials. A browser session stays in its cookie, which is never sent cross-site under "*";
 # the TV app carries its session like the DS photo app (X-SYNO-TOKEN header, PHPSESSID in image URLs).
-CORS_HEADERS = {"Access-Control-Allow-Origin": "*",
-                "Access-Control-Expose-Headers": "x-request-error, x-picturestation-version"}
+CORS_HEADERS = pairing.CORS
 CORS_PREFLIGHT = {**CORS_HEADERS, "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
                   "Access-Control-Allow-Headers": "X-SYNO-TOKEN, Content-Type", "Access-Control-Max-Age": "86400"}
 

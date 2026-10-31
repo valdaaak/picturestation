@@ -1,0 +1,17 @@
+{
+  "id": "org.picturestation.tv",
+  "version": "0.1.0",
+  "vendor": "Picturestation",
+  "type": "web",
+  "main": "index.html",
+  "title": "Picturestation",
+  "appDescription": "Your photos from Picturestation",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "splashBackground": "splash.png",
+  "bgColor": "#111418",
+  "iconColor": "#111418",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}

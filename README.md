@@ -6,6 +6,7 @@ Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works
 
 - **a web gallery** with albums, a timeline, search, tags, places, people and smart albums, in English and Slovak;
 - **the DS photo app** (Android), which connects to it as if it were Photo Station 6;
+- **an app for LG TVs** (webOS 3.0 and later): albums, the newest photos, slideshows and videos from the remote; the TV is paired with a code, without a password;
 - **Photo Station style rights**: users, groups, guest access, password-protected albums, excluded albums, share links with expiry;
 - **people from Synology Photos**: face recognition stays in Synology Photos, Picturestation shows the named people;
 - **iPhone photos**: HEIC with dates and places (with exiftool), and Live Photos as one item whose motion plays in the viewer;
@@ -30,6 +31,7 @@ Picturestation is not affiliated with or endorsed by Synology. Synology, DSM, Ph
 - [Share the photo folder from DSM over NFS](#share-the-photo-folder-from-dsm-over-nfs)
 - [HTTPS and your own domain](#https-and-your-own-domain)
 - [The DS photo app](#the-ds-photo-app)
+- [The LG TV app](#the-lg-tv-app)
 - [People from Synology Photos](#people-from-synology-photos)
 - [Personal galleries](#personal-galleries)
 - [Moving from Photo Station 6](#moving-from-photo-station-6)
@@ -172,6 +174,10 @@ The DS photo app connects in the usual way. It was tested with the Android app 3
 - **HTTPS** when you use the reverse proxy
 
 The app can browse albums, the timeline, tags, places, smart albums and comments, and it can download photos and play videos. Uploads and edits are refused because Picturestation is read-only. The app plays video over plain HTTP, so keep port 80 reachable if you watch videos on the go.
+
+## The LG TV app
+
+`LGTV/` holds an app for LG TVs with webOS 3.0 or later: albums, the newest photos, a full-screen viewer, slideshows and videos, driven by the remote control. It is installed through LG's Developer Mode; [LGTV/README.md](LGTV/README.md) has the steps. The TV is paired without a password: it shows a code, and an administrator allows it under **Settings, TV** for a chosen user. The TV stays signed in until it is removed there.
 
 ## People from Synology Photos
 

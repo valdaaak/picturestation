@@ -28,7 +28,8 @@ CODE_LEN = 6
 CODE_TTL = 600         # seconds a code waits for the administrator
 MAX_PENDING = 200      # per gallery
 MAX_PER_CLIENT = 5     # per client address: a further request replaces that client's oldest code
-CORS = {"Access-Control-Allow-Origin": "*"}
+CORS = {"Access-Control-Allow-Origin": "*",  # also on every DS photo API answer (app.py)
+        "Access-Control-Expose-Headers": "x-request-error, x-picturestation-version"}
 _lock = threading.Lock()
 _pending: dict = {}    # (gallery name, code) -> {"token", "name", "ip", "created", "sid", "username"}
 

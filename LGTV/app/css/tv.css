@@ -1,0 +1,93 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
+/* Picturestation for LG TV. The app runs at 1920x1080 on Chromium 38 (webOS 3.x): no CSS variables, grid,
+   sticky or unprefixed oddities; flexbox, transforms, transitions and object-fit are fine. */
+html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden; background: #111418; color: #eceff4;
+  font-family: "LG Smart UI", "Museo Sans", "Helvetica Neue", Arial, sans-serif; font-size: 28px; line-height: 1.3; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+#app { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+.screen { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #111418; }
+
+/* header of a list */
+.head { position: absolute; left: 50px; right: 50px; top: 0; height: 120px; display: -webkit-flex; display: flex;
+  -webkit-align-items: center; align-items: center; }
+.head .title { font-size: 40px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  -webkit-flex: 1; flex: 1; }
+.head .count { color: #9aa3ad; font-size: 26px; margin-left: 30px; white-space: nowrap; }
+
+/* grid of tiles: 6 columns of 290 px with 16 px gaps = 1820 px, 3 rows visible */
+/* the wrap is 16 px larger on each side than the grid, so a focused (scaled) tile at the edge is not clipped */
+.gridwrap { position: absolute; left: 34px; top: 114px; width: 1852px; height: 966px; overflow: hidden; }
+.grid { position: absolute; left: 16px; top: 16px; width: 1820px;
+  -webkit-transition: -webkit-transform .22s ease-out; transition: transform .22s ease-out; }
+.tile { position: absolute; width: 290px; height: 290px; background: #1d2228; border-radius: 10px; overflow: hidden;
+  -webkit-transition: -webkit-transform .15s, box-shadow .15s; transition: transform .15s, box-shadow .15s; }
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 14px; font-size: 24px;
+  background: rgba(0, 0, 0, .6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .badge { position: absolute; right: 10px; top: 10px; background: rgba(0, 0, 0, .6); border-radius: 8px;
+  padding: 2px 10px; font-size: 20px; }
+.tile.focus { -webkit-transform: scale(1.07); transform: scale(1.07); z-index: 2;
+  box-shadow: 0 0 0 6px #4da3ff, 0 10px 30px rgba(0, 0, 0, .6); }
+.tile.special { background: #263040; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column;
+  -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  text-align: center; padding: 10px; }
+.tile.special .glyph { width: 110px; height: 80px; margin-bottom: 18px; border: 6px solid #eceff4; border-radius: 10px; }
+.tile.special .glyph.gear { width: 80px; height: 80px; border-radius: 50%; border-style: dotted; border-width: 10px; }
+.tile.special.album .glyph { border-style: double; }
+.tile .ph { width: 100%; height: 100%; background: #2a313a; }
+.message { position: absolute; left: 50px; top: 160px; color: #9aa3ad; }
+
+/* viewer */
+.viewer { background: #000; }
+.viewer .full { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: contain; background: #000; }
+.viewer .ov { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 50px 36px;
+  background: -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, .8));
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .8));
+  -webkit-transition: opacity .3s; transition: opacity .3s; }
+.viewer .ov.hide { opacity: 0; }
+.viewer .ov .name { font-size: 34px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.viewer .ov .meta { color: #cfd6de; font-size: 26px; margin-top: 6px; }
+.viewer .ov .hint { color: #9aa3ad; font-size: 22px; margin-top: 16px; }
+.viewer .corner { position: absolute; top: 30px; background: rgba(0, 0, 0, .55); padding: 6px 18px; border-radius: 10px;
+  font-size: 26px; -webkit-transition: opacity .3s; transition: opacity .3s; }
+.viewer .corner.hide { opacity: 0; }
+.viewer .counter { right: 50px; }
+.viewer .play { left: 50px; color: #4da3ff; }
+.viewer .loading { position: absolute; left: 50%; top: 50%; margin: -30px 0 0 -30px; width: 60px; height: 60px;
+  border: 6px solid rgba(255, 255, 255, .2); border-top-color: #eceff4; border-radius: 50%;
+  -webkit-animation: spin 1s linear infinite; animation: spin 1s linear infinite; }
+@-webkit-keyframes spin { to { -webkit-transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* centred screens: address, code, settings */
+.center { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column;
+  -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center;
+  text-align: center; }
+.logo { font-size: 56px; font-weight: bold; margin-bottom: 36px; }
+.form { width: 1000px; }
+.label { font-size: 30px; margin: 10px 0; }
+.field { display: block; width: 100%; height: 84px; font-size: 32px; padding: 0 24px; border-radius: 12px;
+  border: 4px solid #2a313a; background: #1d2228; color: #eceff4; margin: 10px 0; outline: none; font-family: inherit; }
+.field.focus { border-color: #4da3ff; }
+.field:focus { border-color: #4da3ff; background: #0f1d33; }
+.btn { display: inline-block; min-width: 320px; padding: 18px 40px; font-size: 30px; border-radius: 12px; background: #2a313a;
+  color: #eceff4; margin: 24px 10px 0; border: 4px solid transparent; }
+.btn.focus { border-color: #4da3ff; background: #34507a; }
+.muted { color: #9aa3ad; font-size: 26px; }
+.code { font-family: "Courier New", Courier, monospace; font-size: 150px; font-weight: bold; letter-spacing: .25em;
+  padding-left: .25em; margin: 24px 0; line-height: 1.1; }
+.err { color: #ff8a73; min-height: 40px; margin-top: 16px; }
+.wait { color: #9aa3ad; font-size: 26px; margin-top: 10px; }
+
+/* settings rows */
+.rows { width: 1200px; margin-top: 20px; }
+.row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between;
+  -webkit-align-items: center; align-items: center; height: 92px; padding: 0 30px; border-radius: 12px;
+  border: 4px solid transparent; font-size: 30px; text-align: left; }
+.row.focus { border-color: #4da3ff; background: #1d2228; }
+.row .v { color: #9aa3ad; max-width: 700px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.act .v { color: #4da3ff; }
+
+.toast { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%); transform: translateX(-50%);
+  background: #2a313a; padding: 16px 30px; border-radius: 12px; font-size: 28px; z-index: 10; max-width: 1400px; }

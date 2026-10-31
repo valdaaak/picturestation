@@ -6,6 +6,7 @@ Synology v DSM 7 zrušilo Photo Station. Synology Photos nemá práva na albumy 
 
 - **webovú galériu** s albumami, časovou osou, hľadaním, tagmi, miestami, ľuďmi a chytrými albumami, po slovensky aj po anglicky;
 - **appku DS photo** (Android), ktorá sa k nemu pripojí ako k Photo Station 6;
+- **appku pre LG telky** (webOS 3.0 a novšie): albumy, najnovšie fotky, prezentácia a videá ovládačom; telka sa spáruje kódom bez hesla ([LGTV/README.md](LGTV/README.md), po anglicky);
 - **práva ako v Photo Station**: používatelia, skupiny, hostia, albumy s heslom, vylúčené albumy, odkazy na zdieľanie s platnosťou;
 - **ľudí zo Synology Photos**: rozpoznávanie tvárí ostáva v Synology Photos, Picturestation zobrazí pomenovaných ľudí;
 - **fotky z iPhonu**: HEIC s dátumami a miestami (cez exiftool) a Live Photos ako jednu položku, ktorej pohyb sa prehrá v prehliadači;
@@ -48,6 +49,7 @@ sh /opt/picturestation-src/install/install.sh --nfs 192.168.1.10:/volume1/photo
 - **Ostatné témy** sú podrobne v [anglickom README](README.md):
   - HTTPS cez reverse proxy v DSM;
   - appka DS photo;
+  - appka pre LG telky (inštalácia cez Developer Mode, párovanie kódom v Nastaveniach, TV);
   - ľudia zo Synology Photos;
   - osobné galérie z domovských priečinkov;
   - prechod z Photo Station 6;

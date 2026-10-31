@@ -1,0 +1,17 @@
+{
+  "name": "picturestation-lgtv",
+  "private": true,
+  "description": "Picturestation app for LG TVs (webOS): build and install tools",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "check": "node check-es5.js",
+    "package": "node check-es5.js && ares-package app -o dist",
+    "install-tv": "ares-install -d tv dist/org.picturestation.tv_0.1.0_all.ipk",
+    "launch": "ares-launch -d tv org.picturestation.tv",
+    "inspect": "ares-inspect -d tv org.picturestation.tv"
+  },
+  "devDependencies": {
+    "@webos-tools/cli": "^3.2.6",
+    "acorn": "^8.19.0"
+  }
+}
