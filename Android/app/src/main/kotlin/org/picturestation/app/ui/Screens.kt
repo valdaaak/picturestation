@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -29,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -45,7 +50,7 @@ import org.picturestation.app.R
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
+        modifier = Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) { content() }
@@ -61,6 +66,12 @@ fun SetupScreen(vm: AppViewModel) {
     var typed by remember { mutableStateOf(vm.store.server) }
     val noAnswer = stringResource(R.string.err_no_answer)
     val notServer = stringResource(R.string.err_not_server)
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    fun go(address: String) {
+        keyboard?.hide(); focusManager.clearFocus()  // the answer (and the http offer) must not sit under the keyboard
+        vm.connect(address, noAnswer, notServer)
+    }
     Centered {
         Logo()
         Column(modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth()) {
@@ -71,11 +82,11 @@ fun SetupScreen(vm: AppViewModel) {
                 placeholder = { Text(stringResource(R.string.server_hint)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go,
                     capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false),
-                keyboardActions = KeyboardActions(onGo = { vm.connect(typed, noAnswer, notServer) }),
+                keyboardActions = KeyboardActions(onGo = { go(typed) }),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { vm.connect(typed, noAnswer, notServer) }, enabled = !vm.setupBusy,
+            Button(onClick = { go(typed) }, enabled = !vm.setupBusy,
                 modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(if (vm.setupBusy) R.string.connecting else R.string.connect))
             }
@@ -87,7 +98,7 @@ fun SetupScreen(vm: AppViewModel) {
                 Spacer(Modifier.height(12.dp))
                 Text(stringResource(R.string.http_warning), color = Muted)
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = { typed = http; vm.connect(http, noAnswer, notServer) }, enabled = !vm.setupBusy,
+                OutlinedButton(onClick = { typed = http; go(http) }, enabled = !vm.setupBusy,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.try_http, http)) }
             }
         }
