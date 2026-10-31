@@ -6,7 +6,11 @@ The app is installed through LG's **Developer Mode**, not from the LG Content St
 
 ## Pairing
 
-The TV never asks for a password. On the first start the app asks for the address of the gallery, for example `photos.example.com` (`https://` is tried first, then `http://`), and then shows a code of six letters and digits. An administrator opens the gallery in a browser, goes to **Settings, TV**, enters the code and chooses the user whose photos the TV will see. The TV stays signed in until it is removed there, or until **Settings, Sign out of this TV** on the TV. A code waits 10 minutes; after that the TV shows a new one.
+The TV never asks for a password. On the first start the app asks for the address of the gallery, for example `photos.example.com` (`https://` is tried first, then `http://`), and then shows a code of six letters and digits. An administrator opens the gallery in a browser, goes to **Settings, TV**, enters the code and chooses the user whose photos the TV will see. The TV stays signed in until it is removed there, or until the gallery is removed under **Settings** on the TV. A code waits 10 minutes; after that the TV shows a new one.
+
+## Several galleries
+
+The TV can hold several paired galleries: the main gallery of a server and private galleries on it (`photos.example.com/~name`), or galleries on different servers. **Settings, Add gallery** runs the address-and-code flow again; each gallery is approved by its own administrator in its own Settings, TV. The other galleries appear as tiles next to "Latest photos" on the start screen, and the app remembers the gallery shown last. A gallery whose TV was removed on the server asks for a new code; the others stay. In a slideshow every photo zooms slowly from fitting the screen to filling it, so a portrait photo ends edge to edge; a pause holds the zoom.
 
 ## What you need
 

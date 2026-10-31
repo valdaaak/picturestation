@@ -34,7 +34,7 @@ html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hid
   text-align: center; padding: 10px; }
 .tile.special .glyph { width: 110px; height: 80px; margin-bottom: 18px; border: 6px solid #eceff4; border-radius: 10px; }
 .tile.special .glyph.gear { width: 80px; height: 80px; border-radius: 50%; border-style: dotted; border-width: 10px; }
-.tile.special.album .glyph { border-style: double; }
+.tile.special.gallery .glyph { border-style: double; }   /* another paired gallery */
 .tile .ph { width: 100%; height: 100%; background: #2a313a; }
 .message { position: absolute; left: 50px; top: 160px; color: #9aa3ad; }
 
@@ -95,6 +95,7 @@ html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hid
 .row.focus { border-color: #4da3ff; background: #1d2228; }
 .row .v { color: #9aa3ad; max-width: 700px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row.act .v { color: #4da3ff; }
+.row.active .k { color: #f5b942; }   /* the gallery shown now */
 
 .toast { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%); transform: translateX(-50%);
   background: #2a313a; padding: 16px 30px; border-radius: 12px; font-size: 28px; z-index: 10; max-width: 1400px; }

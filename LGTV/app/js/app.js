@@ -3,16 +3,56 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.2";
+var APP_VERSION = "0.1.3";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
-var STATE = { title: "", user: "", interval: 8, noTimeline: false, sortBy: "filename", sortDir: "asc" };
+// pendingBase: the gallery address the setup and pairing screens work on
+var STATE = { title: "", user: "", interval: 8, noTimeline: false, sortBy: "filename", sortDir: "asc", pendingBase: "" };
 
 function loadPrefs() {
-  STATE.user = store("ps_user") || "";
-  STATE.title = store("ps_title") || "";
+  var g = API.current();
+  STATE.user = g ? g.user : "";
+  STATE.title = g ? g.title : "";
   var iv = parseInt(store("ps_interval") || "0", 10);
   if (iv > 0) STATE.interval = iv;
+}
+
+// ---------------- galleries ----------------
+// Setup and Pair can be left when a screen lies below them (adding a gallery) or another paired gallery exists
+function otherGallery() {
+  for (var i = 0; i < API.galleries.length; i++) {
+    var g = API.galleries[i];
+    if (g.sid && g.base !== STATE.pendingBase) return i;
+  }
+  return -1;
+}
+function canCancel() { return UI.stack.length > 1 || otherGallery() >= 0; }
+function cancelSetup() {
+  if (UI.stack.length > 1) { UI.pop(); return; }
+  var i = otherGallery();
+  if (i >= 0) switchGallery(i);
+}
+// the screen on top gives way to another (Setup -> Pair), below it the rest of the stack stays
+function swapTo(screen) {
+  if (UI.stack.length > 1) { UI.pop(); UI.push(screen); } else UI.reset(screen);
+}
+function changeAddress() { swapTo(setupScreen()); }
+function switchGallery(i) {
+  API.use(i);
+  API.save();
+  loadPrefs();
+  UI.reset(startScreen());
+}
+function removeGallery(i) {
+  var g = API.galleries[i];
+  if (!g) return;
+  if (g.sid) API.call("auth.php", "SYNO.PhotoStation.Auth", "logout", {}, function () { /* the server forgets the TV */ }, { base: g.base, sid: g.sid });
+  var wasActive = i === API.active;
+  API.remove(i);
+  API.save();
+  if (!API.galleries.length) { STATE.pendingBase = ""; UI.reset(setupScreen()); }
+  else if (wasActive) switchGallery(API.active);
+  else { loadPrefs(); UI.pop(); UI.push(settingsScreen()); }
 }
 
 function itemTitle(it) {
@@ -22,8 +62,9 @@ function itemTitle(it) {
 // a lost session (removed under Settings, TV) sends the TV back to a new code
 function apiFailed(err) {
   if (err && err.code === "timeout") {
-    API.sid = "";
+    API.setSid("");
     API.save();
+    STATE.pendingBase = API.server;
     UI.reset(pairScreen(t("The session has ended, a new code is needed.")));
     return true;
   }
@@ -38,7 +79,7 @@ function setupScreen(message) {
   form.appendChild(el("div", "label", t("Address of your Picturestation")));
   var input = el("input", "field");
   input.type = "text";
-  input.value = API.server || "";
+  input.value = STATE.pendingBase || "";
   input.setAttribute("autocapitalize", "off");
   input.setAttribute("autocorrect", "off");
   input.setAttribute("spellcheck", "false");
@@ -48,10 +89,14 @@ function setupScreen(message) {
   form.appendChild(btn);
   var err = el("div", "err", message || "");
   form.appendChild(err);
+  var cancel = null;
+  if (canCancel()) { cancel = el("div", "btn", t("Cancel")); form.appendChild(cancel); }
   node.appendChild(form);
 
   var editing = false, busy = false;
-  var focus = new FocusList([input, btn], function (i) { if (i === 0) edit(); else connect(); });
+  var focus = new FocusList(cancel ? [input, btn, cancel] : [input, btn], function (i) {
+    if (i === 0) edit(); else if (i === 1) connect(); else cancelSetup();
+  });
   focus.pointer();
   function edit() { editing = true; input.focus(); }
   input.addEventListener("focus", function () { editing = true; focus.set(0); }, false);
@@ -73,16 +118,15 @@ function setupScreen(message) {
       err.textContent = t("The server did not answer. Check the address and the network.");
       return;
     }
-    API.server = cands[i];
+    var base = cands[i];
     API.call("query.php", "SYNO.API.Info", "query", { query: "all" }, function (e, d) {
       if (e && e.code === "network") return tryNext(i + 1, cands);
       busy = false;
       btn.textContent = t("Connect");
       if (e || !d["SYNO.PhotoStation.Auth"]) { err.textContent = t("This is not a Picturestation server."); return; }
-      API.sid = "";
-      API.save();
-      UI.reset(pairScreen());
-    });
+      STATE.pendingBase = base;
+      swapTo(pairScreen());
+    }, { base: base, sid: "" });
   }
 
   return {
@@ -105,14 +149,18 @@ function pairScreen(message) {
   node.appendChild(el("div", "label", t("Enter this code in Picturestation")));
   var code = el("div", "code", "······");
   node.appendChild(code);
+  node.appendChild(el("div", "muted", STATE.pendingBase.replace(/^https:\/\//, "")));
   node.appendChild(el("div", "muted", t("In a browser open the gallery, Settings, TV, and allow this code under your name.")));
   var wait = el("div", "wait", message || t("Waiting for approval…"));
   node.appendChild(wait);
   var btn = el("div", "btn", t("Change address"));
   node.appendChild(btn);
-  var focus = new FocusList([btn], function () { UI.reset(setupScreen()); });
+  var btns = [btn];
+  if (canCancel()) { var cancel = el("div", "btn", t("Cancel")); node.appendChild(cancel); btns.push(cancel); }
+  var focus = new FocusList(btns, function (i) { if (i === 0) changeAddress(); else cancelSetup(); });
   focus.pointer();
 
+  var base = STATE.pendingBase;
   var token = "", timer = null, alive = true, note = message || "";
   function later(fn, ms) { if (timer) clearTimeout(timer); timer = setTimeout(fn, ms); }
   function getCode() {
@@ -127,26 +175,24 @@ function pairScreen(message) {
       wait.textContent = note || t("Waiting for approval…");
       note = "";
       later(poll, 3000);
-    });
+    }, { base: base, sid: "" });
   }
   function poll() {
     API.post("/api/tv/poll", { token: token }, function (e, d) {
       if (!alive) return;
       if (e) { wait.textContent = t("Network error, trying again…"); return later(poll, 5000); }
       if (d.status === "ok") {
-        API.sid = d.sid;
+        // the gallery joins the list (or replaces its old entry) and becomes the active one
+        API.use(API.upsert({ base: base, sid: d.sid, user: d.username || "", title: d.title || "" }));
         API.save();
-        STATE.user = d.username || "";
-        STATE.title = d.title || "";
-        store("ps_user", STATE.user);
-        store("ps_title", STATE.title);
+        loadPrefs();
         UI.reset(startScreen());
         return;
       }
       if (d.status === "pending") return later(poll, 3000);
       note = t("The code has expired, here is a new one.");
       getCode();
-    });
+    }, { base: base, sid: "" });
   }
   return {
     node: node,
@@ -165,6 +211,10 @@ function startScreen() {
   var timer = null, alive = true;
   function retry() { msg.textContent = t("Network error, trying again…"); timer = setTimeout(go, 5000); }
   function go() {
+    var g = API.current();
+    if (!g) { STATE.pendingBase = ""; UI.reset(setupScreen()); return; }
+    STATE.pendingBase = g.base;
+    if (!g.sid) { UI.reset(pairScreen()); return; }
     API.call("info.php", "SYNO.PhotoStation.Info", "getinfo", {}, function (e, d) {
       if (!alive) return;
       if (e) { if (!apiFailed(e)) retry(); return; }
@@ -172,18 +222,20 @@ function startScreen() {
       STATE.noTimeline = !!d.disable_timeline;
       STATE.sortBy = d.sort_by || "filename";
       STATE.sortDir = d.sort_direction || "asc";
-      store("ps_title", STATE.title);
+      g.title = STATE.title;
+      API.save();
       API.call("auth.php", "SYNO.PhotoStation.Auth", "checkauth", {}, function (e2, a) {
         if (!alive) return;
         if (e2) { if (!apiFailed(e2)) retry(); return; }
         if (!a.username) {
-          API.sid = "";
+          API.setSid("");
           API.save();
           UI.reset(pairScreen(t("The session has ended, a new code is needed.")));
           return;
         }
         STATE.user = a.username;
-        store("ps_user", STATE.user);
+        g.user = STATE.user;
+        API.save();
         UI.reset(browseScreen(null));
       });
     });
@@ -193,7 +245,7 @@ function startScreen() {
     enter: go,
     leave: function () { alive = false; if (timer) clearTimeout(timer); },
     onKey: function (code) {
-      if (code === KEY.BACK || code === KEY.ESC) { UI.reset(setupScreen()); return true; }
+      if (code === KEY.BACK || code === KEY.ESC) { changeAddress(); return true; }
       return false;
     }
   };
@@ -235,10 +287,12 @@ function browseScreen(where) {
     tile.style.left = (i % COLS) * STEP + "px";
     tile.style.top = Math.floor(i / COLS) * STEP + "px";
     var ent = { kind: kind, item: item, tile: tile, img: null, src: "" };
-    if (kind === "latest" || kind === "settings") {
-      tile.className += " special";
+    if (kind === "latest" || kind === "settings" || kind === "gallery") {
+      tile.className += " special" + (kind === "gallery" ? " gallery" : "");
       tile.appendChild(el("div", "glyph" + (kind === "settings" ? " gear" : "")));
-      tile.appendChild(el("div", null, kind === "latest" ? t("Latest photos") : t("Settings")));
+      var label = kind === "latest" ? t("Latest photos") : (kind === "settings" ? t("Settings")
+        : (item.title || item.base.replace(/^https:\/\//, "")));   // another paired gallery
+      tile.appendChild(el("div", null, label));
     } else {
       if (item.thumbnail_status && item.thumbnail_status !== "default") ent.src = API.thumb(item, "small");
       else tile.appendChild(el("div", "ph"));
@@ -268,6 +322,11 @@ function browseScreen(where) {
       }
       var items = d.items || [];
       if (loaded === 0 && isRoot && !STATE.noTimeline) addEntry("latest", null);
+      if (loaded === 0 && isRoot) {
+        for (var gi = 0; gi < API.galleries.length; gi++) {
+          if (gi !== API.active) addEntry("gallery", { index: gi, title: API.galleries[gi].title, base: API.galleries[gi].base });
+        }
+      }
       for (var i = 0; i < items.length; i++) {
         addEntry(items[i].type === "album" ? "album" : (items[i].type === "video" ? "video" : "photo"), items[i]);
       }
@@ -331,6 +390,7 @@ function browseScreen(where) {
     var e = entries[focus];
     if (!e) return;
     if (e.kind === "latest") UI.push(browseScreen({ latest: true }));
+    else if (e.kind === "gallery") switchGallery(e.item.index);
     else if (e.kind === "settings") UI.push(settingsScreen());
     else if (e.kind === "album") UI.push(browseScreen(e.item));
     else UI.push(viewerScreen(self, e.media, false));
@@ -465,7 +525,7 @@ function viewerScreen(browse, index, autoplay) {
       }
     } else {
       var im = el("img", "full");
-      im.onload = function () { spinner.setAttribute("hidden", ""); schedule(); };
+      im.onload = function () { spinner.setAttribute("hidden", ""); zoomStart(im); schedule(); };
       im.onerror = function () {
         spinner.setAttribute("hidden", "");
         UI.toast(t("The photo could not be loaded."));
@@ -501,11 +561,46 @@ function viewerScreen(browse, index, autoplay) {
     if (ov.className.indexOf("hide") >= 0) showOverlay(); else { if (hideTimer) clearTimeout(hideTimer); hideOverlay(); }
   }
 
+  // slideshow zoom: the photo grows slowly from fitting the screen to filling it (a portrait photo ends
+  // edge to edge) over the slide's time; a pause holds the zoom, the next photo starts fitted again
+  function coverScale(im) {
+    var w = im.naturalWidth, h = im.naturalHeight;
+    if (!w || !h) return 1;
+    return Math.max(1920 / w, 1080 / h) / Math.min(1920 / w, 1080 / h);
+  }
+  function currentScale(im) {
+    var cs = window.getComputedStyle(im);
+    var m = /matrix\(([^,]+),/.exec(cs.webkitTransform || cs.transform || "");
+    return m ? parseFloat(m[1]) : 1;
+  }
+  function zoomStart(im) {
+    if (!playing || !im || im.tagName !== "IMG") return;
+    var k = coverScale(im);
+    if (k < 1.02) return;
+    var a = currentScale(im);
+    if (a >= k) return;
+    var secs = STATE.interval * (k - a) / (k - 1);
+    im.style.webkitTransition = "-webkit-transform " + secs + "s linear";
+    im.style.transition = "transform " + secs + "s linear";
+    void im.offsetWidth;  // a reflow, so the transition runs from the scale shown now
+    im.style.webkitTransform = "scale(" + k + ")";
+    im.style.transform = "scale(" + k + ")";
+  }
+  function zoomHold(im) {
+    if (!im || im.tagName !== "IMG") return;
+    var a = currentScale(im);
+    im.style.webkitTransition = "none";
+    im.style.transition = "none";
+    im.style.webkitTransform = "scale(" + a + ")";
+    im.style.transform = "scale(" + a + ")";
+  }
+
   function setPlaying(on) {
     var was = playing;
     playing = on;
     var video = current && current.tagName === "VIDEO";
     if (video) { if (on) current.play(); else current.pause(); }
+    else if (on) zoomStart(current); else zoomHold(current);
     if (on) showTag("playing", 0);
     else if (video) showTag("paused", 0);          // the frozen frame stays marked
     else if (was) showTag("paused", 3000);         // a stopped slideshow of photos: brief note
@@ -572,12 +667,27 @@ function settingsScreen() {
     return r;
   }
   function intervalText() { return tn(STATE.interval, "{n} second", "{n} seconds"); }
-  var rServer = row(t("Server"), API.server, false);
-  var rUser = row(t("Signed in as"), STATE.user || "–", false);
-  var rInt = row(t("Slideshow interval"), "◀ " + intervalText() + " ▶", true);
-  var rOut = row(t("Sign out of this TV"), "", true);
-  var rSrv = row(t("Change server"), "", true);
-  var rVer = row(t("App version"), APP_VERSION, false);
+  var focusNodes = [], acts = [];   // one row and one action per entry, in order
+  function add(label, value, act, fn) {
+    var r = row(label, value, act);
+    focusNodes.push(r);
+    acts.push(fn || null);
+    return r;
+  }
+  // the paired galleries: OK twice on a row removes that gallery (the server forgets the TV there)
+  var armed = -1;
+  function galleryRow(gi) {
+    var g = API.galleries[gi];
+    var r = add(g.title || g.base.replace(/^https:\/\//, ""), (g.user ? g.user + " · " : "") + t("Remove"), true, function () {
+      if (armed === gi) { armed = -1; removeGallery(gi); }
+      else { armed = gi; r.lastChild.textContent = t("Press OK again to remove"); }
+    });
+    if (gi === API.active) r.className += " active";
+  }
+  for (var gi = 0; gi < API.galleries.length; gi++) galleryRow(gi);
+  add(t("Add gallery"), "", true, function () { STATE.pendingBase = ""; UI.push(setupScreen()); });
+  var rInt = add(t("Slideshow interval"), "◀ " + intervalText() + " ▶", true, function () { changeInterval(1); });
+  add(t("App version"), APP_VERSION, false, null);
   node.appendChild(rows);
 
   function changeInterval(d) {
@@ -588,24 +698,12 @@ function settingsScreen() {
     store("ps_interval", STATE.interval);
     rInt.lastChild.textContent = "◀ " + intervalText() + " ▶";
   }
-  function signOut() {
-    API.call("auth.php", "SYNO.PhotoStation.Auth", "logout", {}, function () { /* the server forgets the TV */ });
-    API.sid = "";
-    API.save();
-    STATE.user = "";
-    store("ps_user", "");
-    UI.reset(pairScreen());
-  }
-  var focus = new FocusList([rServer, rUser, rInt, rOut, rSrv, rVer], function (i) {
-    if (i === 2) changeInterval(1);
-    else if (i === 3) signOut();
-    else if (i === 4) UI.reset(setupScreen());
-  });
+  var focus = new FocusList(focusNodes, function (i) { if (acts[i]) acts[i](); });
   focus.pointer();
   return {
     node: node,
     onKey: function (code) {
-      if (focus.index === 2 && (code === KEY.LEFT || code === KEY.RIGHT)) { changeInterval(code === KEY.RIGHT ? 1 : -1); return true; }
+      if (focusNodes[focus.index] === rInt && (code === KEY.LEFT || code === KEY.RIGHT)) { changeInterval(code === KEY.RIGHT ? 1 : -1); return true; }
       return focus.key(code);
     }
   };
@@ -617,8 +715,7 @@ function main() {
   UI.init();
   API.load();
   loadPrefs();
-  if (!API.server) UI.push(setupScreen());
-  else if (!API.sid) UI.push(pairScreen());
-  else UI.push(startScreen());
+  if (!API.galleries.length) UI.push(setupScreen());
+  else UI.push(startScreen());   // a gallery without a session goes on to the pairing code
 }
 document.addEventListener("DOMContentLoaded", main, false);

@@ -34,12 +34,12 @@ var I18N_SK = {
   "The photo could not be loaded.": "Fotka sa nedá načítať.",
   "OK: details · Red: slideshow · Green: pause · Back: close":
     "OK: detaily · Červené: prezentácia · Zelené: pauza · Back: zavrieť",
-  "Server": "Server",
-  "Signed in as": "Prihlásený ako",
+  "Add gallery": "Pridať galériu",
+  "Remove": "Odstrániť",
+  "Press OK again to remove": "Stlač OK ešte raz na odstránenie",
+  "Cancel": "Zrušiť",
   "Slideshow interval": "Interval prezentácie",
   "{n} seconds": ["{n} sekunda", "{n} sekundy", "{n} sekúnd"],
-  "Sign out of this TV": "Odhlásiť túto telku",
-  "Change server": "Zmeniť server",
   "App version": "Verzia appky"
 };
 

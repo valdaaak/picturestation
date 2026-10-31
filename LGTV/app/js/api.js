@@ -3,27 +3,79 @@
 // Talks to Picturestation over the DS photo API (docs/protocol.md) and the pairing endpoints (/api/tv/*).
 // A packaged webOS app has no web origin, so the server answers CORS from anywhere without credentials;
 // the session travels like the DS photo app's: X-SYNO-TOKEN header on calls, PHPSESSID in image URLs.
+// The TV holds a list of paired galleries (base URL, session, user, title); one of them is active and
+// API.server / API.sid mirror it. A gallery is the main gallery of a server or a private one (/~name).
 // Errors given to callbacks: {code: "network" | "bad" | "timeout" | "api", status, error}.
 
 var API = {
+  galleries: [],
+  active: 0,
   server: "",
   sid: "",
 
   load: function () {
-    this.server = store("ps_server") || "";
-    this.sid = store("ps_sid") || "";
+    var list = null;
+    try { list = JSON.parse(store("ps_galleries") || "null"); } catch (e) { list = null; }
+    if (!list) {
+      // versions up to 0.1.2 kept one server in ps_server/ps_sid/ps_user/ps_title
+      list = [];
+      var old = store("ps_server");
+      if (old) list.push({ base: old, sid: store("ps_sid") || "", user: store("ps_user") || "", title: store("ps_title") || "" });
+      store("ps_server", ""); store("ps_sid", ""); store("ps_user", ""); store("ps_title", "");
+    }
+    this.galleries = [];
+    for (var i = 0; i < list.length; i++) {
+      var g = list[i];
+      if (g && g.base) this.galleries.push({ base: g.base, sid: g.sid || "", user: g.user || "", title: g.title || "" });
+    }
+    var a = parseInt(store("ps_active") || "0", 10);
+    this.use(isNaN(a) ? 0 : a);
   },
   save: function () {
-    store("ps_server", this.server);
-    store("ps_sid", this.sid);
+    store("ps_galleries", JSON.stringify(this.galleries));
+    store("ps_active", String(this.active));
   },
 
-  post: function (path, params, cb) {
+  current: function () { return this.galleries[this.active] || null; },
+  // makes gallery i the active one (out of range: the first)
+  use: function (i) {
+    if (i < 0 || i >= this.galleries.length) i = 0;
+    this.active = i;
+    var g = this.current();
+    this.server = g ? g.base : "";
+    this.sid = g ? g.sid : "";
+  },
+  // adds a gallery or replaces the one with the same base; returns its index
+  upsert: function (g) {
+    for (var i = 0; i < this.galleries.length; i++) {
+      if (this.galleries[i].base === g.base) { this.galleries[i] = g; return i; }
+    }
+    this.galleries.push(g);
+    return this.galleries.length - 1;
+  },
+  // forgets gallery i; the active index follows the remaining list
+  remove: function (i) {
+    if (i < 0 || i >= this.galleries.length) return;
+    this.galleries.splice(i, 1);
+    var a = this.active;
+    if (a > i) a--; else if (a === i) a = Math.min(a, this.galleries.length - 1);
+    this.use(Math.max(0, a));
+  },
+  setSid: function (sid) {
+    var g = this.current();
+    if (g) g.sid = sid;
+    this.sid = sid;
+  },
+
+  // opts: {base, sid} override the active gallery (pairing, probing an address, logging a gallery out)
+  post: function (path, params, cb, opts) {
+    var base = opts && opts.base !== undefined ? opts.base : this.server;
+    var sid = opts && opts.sid !== undefined ? opts.sid : this.sid;
     var xhr = new XMLHttpRequest();
     var done = false;
-    xhr.open("POST", this.server + path, true);
+    xhr.open("POST", base + path, true);
     xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-    if (this.sid) xhr.setRequestHeader("X-SYNO-TOKEN", this.sid);
+    if (sid) xhr.setRequestHeader("X-SYNO-TOKEN", sid);
     xhr.timeout = 25000;
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== 4 || done) return;
@@ -42,14 +94,14 @@ var API = {
   },
 
   // DS photo API: cb(err, data)
-  call: function (script, api, method, params, cb) {
+  call: function (script, api, method, params, cb, opts) {
     var p = { api: api, method: method, version: "1" };
     for (var k in params) if (params.hasOwnProperty(k) && params[k] !== undefined && params[k] !== null) p[k] = params[k];
     this.post("/photo/webapi/" + script, p, function (err, j) {
       if (err) return cb(err);
       if (!j.success) return cb({ code: "api", error: j.error && j.error.code });
       cb(null, j.data || {});
-    });
+    }, opts);
   },
 
   thumb: function (item, size) {
