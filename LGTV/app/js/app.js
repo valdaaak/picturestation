@@ -373,7 +373,8 @@ function viewerScreen(browse, index, autoplay) {
   node.appendChild(spinner);
   var counter = el("div", "corner counter");
   node.appendChild(counter);
-  var playTag = el("div", "corner play hide", t("Slideshow"));
+  var playTag = el("div", "corner play hide");  // a play triangle while the slideshow runs
+  playTag.appendChild(el("span", "tri"));
   node.appendChild(playTag);
   var ov = el("div", "ov");
   var name = el("div", "name"), meta = el("div", "meta");
