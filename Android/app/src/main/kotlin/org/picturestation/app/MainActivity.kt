@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+package org.picturestation.app
+
+import android.content.pm.PackageManager
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import org.picturestation.app.ui.BrowseScreen
+import org.picturestation.app.ui.Navy
+import org.picturestation.app.ui.PairScreen
+import org.picturestation.app.ui.PicturestationTheme
+import org.picturestation.app.ui.SettingsScreen
+import org.picturestation.app.ui.SetupScreen
+import org.picturestation.app.ui.StartScreen
+import org.picturestation.app.ui.ViewerScreen
+
+/** One activity for phones, tablets and Android TV; the screens come from the view model's stack. */
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val vm: AppViewModel by viewModels()
+        vm.isTv = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        setContent { PicturestationTheme { Root(vm) } }
+    }
+}
+
+@Composable
+fun Root(vm: AppViewModel) {
+    val ctx = LocalContext.current
+    val screen = vm.current
+    BackHandler(enabled = vm.stack.size > 1) { vm.pop() }
+    LaunchedEffect(vm.message) { vm.message?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.message = null } }
+    Box(modifier = Modifier.fillMaxSize().background(Navy)) {
+        when (screen) {
+            is Screen.Setup -> SetupScreen(vm)
+            is Screen.Pair -> PairScreen(vm)
+            is Screen.Start -> StartScreen(vm)
+            is Screen.Settings -> SettingsScreen(vm)
+            is Screen.Browse -> BrowseScreen(
+                vm, screen.state,
+                onOpenAlbum = { vm.push(Screen.Browse(BrowseState(Where(album = it)))) },
+                onOpenLatest = { vm.push(Screen.Browse(BrowseState(Where(latest = true)))) },
+                onOpenMedia = { i, slideshow -> vm.push(Screen.Viewer(screen.state, i, slideshow)) },
+                onSettings = { vm.push(Screen.Settings) },
+                onBack = { vm.pop() },
+            )
+            is Screen.Viewer -> ViewerScreen(vm, screen.state, screen.start, screen.slideshow, onBack = { vm.pop() })
+        }
+    }
+}

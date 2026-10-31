@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<resources>
+    <string name="server_address">Adresa tvojho Picturestation</string>
+    <string name="server_hint">fotky.priklad.sk alebo 192.168.1.10</string>
+    <string name="connect">Pripojiť</string>
+    <string name="connecting">Pripájam…</string>
+    <string name="err_no_answer">Server neodpovedal. Skontroluj adresu a sieť.</string>
+    <string name="err_not_server">Toto nie je server Picturestation.</string>
+    <string name="enter_code">Zadaj tento kód v Picturestation</string>
+    <string name="code_help">V prehliadači otvor galériu, Nastavenia, TV, a povoľ tento kód pod svojím menom.</string>
+    <string name="waiting_approval">Čakám na povolenie…</string>
+    <string name="code_expired">Kód vypršal, tu je nový.</string>
+    <string name="change_address">Zmeniť adresu</string>
+    <string name="session_ended">Prihlásenie skončilo, treba nový kód.</string>
+    <string name="network_retry">Chyba siete, skúšam znova…</string>
+    <string name="latest_photos">Najnovšie fotky</string>
+    <string name="settings">Nastavenia</string>
+    <string name="no_photos">Tu nie sú žiadne fotky.</string>
+    <string name="album_password">Tento album má heslo.</string>
+    <string name="load_failed">Nepodarilo sa načítať.</string>
+    <string name="items_one">%1$d položka</string>
+    <string name="items_many">%1$d položiek</string>
+    <string name="no_date">Bez dátumu</string>
+    <string name="video_failed">Video sa nedá prehrať.</string>
+    <string name="upright_preparing">Otočená kópia videa sa pripravuje, zatiaľ hrá originál.</string>
+    <string name="slideshow">Prezentácia</string>
+    <string name="server">Server</string>
+    <string name="signed_in_as">Prihlásený ako</string>
+    <string name="slideshow_interval">Interval prezentácie</string>
+    <string name="seconds">%1$d s</string>
+    <string name="sign_out">Odhlásiť toto zariadenie</string>
+    <string name="change_server">Zmeniť server</string>
+    <string name="app_version">Verzia appky</string>
+    <string name="back">Späť</string>
+    <string name="share">Zdieľať</string>
+    <string name="details">Detaily</string>
+    <string name="play">Prehrať</string>
+    <string name="pause">Pauza</string>
+</resources>
