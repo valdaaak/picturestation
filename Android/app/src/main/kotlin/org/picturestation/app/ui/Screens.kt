@@ -83,6 +83,13 @@ fun SetupScreen(vm: AppViewModel) {
                 Spacer(Modifier.height(12.dp))
                 Text(it, color = MaterialTheme.colorScheme.error)
             }
+            vm.setupHttpOffer?.let { http ->
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.http_warning), color = Muted)
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = { typed = http; vm.connect(http, noAnswer, notServer) }, enabled = !vm.setupBusy,
+                    modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.try_http, http)) }
+            }
         }
     }
 }

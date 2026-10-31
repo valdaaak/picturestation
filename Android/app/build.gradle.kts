@@ -62,6 +62,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
+    implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
 
     // the session, encrypted (Android Keystore)
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

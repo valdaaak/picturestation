@@ -7,6 +7,8 @@
     <string name="connecting">Pripájam…</string>
     <string name="err_no_answer">Server neodpovedal. Skontroluj adresu a sieť.</string>
     <string name="err_not_server">Toto nie je server Picturestation.</string>
+    <string name="http_warning">Šifrované spojenie (https) sa nepodarilo. Obyčajné http je v poriadku na vlastnej sieti, ale po ceste ho môže ktokoľvek čítať.</string>
+    <string name="try_http">Použiť %1$s</string>
     <string name="enter_code">Zadaj tento kód v Picturestation</string>
     <string name="code_help">V prehliadači otvor galériu, Nastavenia, TV, a povoľ tento kód pod svojím menom.</string>
     <string name="waiting_approval">Čakám na povolenie…</string>

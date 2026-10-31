@@ -8,6 +8,8 @@
     <string name="connecting">Connecting…</string>
     <string name="err_no_answer">The server did not answer. Check the address and the network.</string>
     <string name="err_not_server">This is not a Picturestation server.</string>
+    <string name="http_warning">No encrypted (https) connection. Plain http is fine on your own network, but anyone on the way can read what passes.</string>
+    <string name="try_http">Use %1$s</string>
     <string name="enter_code">Enter this code in Picturestation</string>
     <string name="code_help">In a browser open the gallery, Settings, TV, and allow this code under your name.</string>
     <string name="waiting_approval">Waiting for approval…</string>

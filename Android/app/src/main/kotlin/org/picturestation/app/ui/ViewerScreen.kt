@@ -59,7 +59,9 @@ import androidx.compose.foundation.focusable
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
@@ -200,7 +202,9 @@ private fun VideoPage(vm: AppViewModel, item: Item, active: Boolean, paused: Boo
     val failedText = stringResource(R.string.video_failed)
     val preparing = stringResource(R.string.upright_preparing)
     val player = remember(item.id) {
-        ExoPlayer.Builder(ctx).build().apply {
+        // the app's OkHttp client: the session goes in a header, not in the URL
+        val sources = DefaultMediaSourceFactory(OkHttpDataSource.Factory(vm.api.client))
+        ExoPlayer.Builder(ctx).setMediaSourceFactory(sources).build().apply {
             // players honour the rotation flag; the TV app needs the upright copy, this one does not
             setMediaItem(MediaItem.fromUri(vm.api.videoUrl(item, "web")))
             prepare()
@@ -238,7 +242,10 @@ private fun share(vm: AppViewModel, ctx: android.content.Context, item: Item) {
                 if (!it.isSuccessful || !(type.startsWith("image/") || type.startsWith("video/"))) throw IllegalStateException(type)
                 val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
                 dir.listFiles()?.forEach { f -> f.delete() }
-                val file = File(dir, item.name.ifEmpty { "photo" })
+                // the name comes from the server: keep only a plain file name
+                val safe = File(item.name).name.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.').ifEmpty { "photo" }
+                val file = File(dir, safe)
+                if (!file.canonicalPath.startsWith(dir.canonicalPath + File.separator)) throw IllegalStateException("name")
                 file.outputStream().use { out -> it.body!!.byteStream().copyTo(out) }
                 val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", file)
                 val send = Intent(Intent.ACTION_SEND).setType(type).putExtra(Intent.EXTRA_STREAM, uri)

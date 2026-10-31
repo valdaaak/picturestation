@@ -3,6 +3,7 @@ package org.picturestation.app
 
 import android.app.Application
 import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -40,6 +41,8 @@ sealed class Screen {
     data object Settings : Screen()
 }
 
+private const val TAG = "Picturestation"
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val store = Store(app)
     val api = Api(store)
@@ -72,24 +75,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- server address ----------
     var setupBusy by mutableStateOf(false)
     var setupError by mutableStateOf<String?>(null)
+    /** After https failed for a bare host: the http address the user may choose to try instead. */
+    var setupHttpOffer by mutableStateOf<String?>(null)
     fun connect(typed: String, noAnswer: String, notServer: String) {
-        val cands = Api.candidates(typed)
-        if (cands.isEmpty()) { setupError = noAnswer; return }
-        setupBusy = true; setupError = null
+        val base = Api.normalize(typed) ?: run { setupError = noAnswer; return }
+        setupBusy = true; setupError = null; setupHttpOffer = null
         viewModelScope.launch {
-            var ok = false
-            var lastNet = true
-            for (c in cands) {
-                try {
-                    if (api.isServer(c)) { store.server = c; ok = true; break }
-                    lastNet = false
-                } catch (e: Api.ApiException) {
-                    lastNet = e.kind == Api.Kind.NETWORK
-                    if (!lastNet) break
-                }
+            try {
+                if (api.isServer(base)) { store.server = base; store.sid = ""; setupBusy = false; reset(Screen.Pair); return@launch }
+                setupError = notServer
+            } catch (e: Api.ApiException) {
+                setupError = if (e.kind == Api.Kind.NETWORK) noAnswer else notServer
+                // https did not answer and the user typed no scheme: offer plain http, never switch silently
+                if (e.kind == Api.Kind.NETWORK && base.startsWith("https://") && !typed.trim().startsWith("http"))
+                    setupHttpOffer = "http://" + base.removePrefix("https://")
             }
             setupBusy = false
-            if (ok) { store.sid = ""; reset(Screen.Pair) } else setupError = if (lastNet) noAnswer else notServer
         }
     }
 
@@ -157,10 +158,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         st.loading = true; st.error = null
         viewModelScope.launch {
             try {
+                Log.d(TAG, "list ${st.where} from ${st.items.size}")
                 val (items, total) = if (st.where.latest) api.listLatest(st.items.size, page)
                 else api.listAlbum(st.where.album?.id, st.items.size, page, sortBy, sortDir)
+                Log.d(TAG, "list ${st.where}: ${items.size} items of $total")
                 st.items.addAll(items); st.total = maxOf(total, st.items.size)
             } catch (e: Api.ApiException) {
+                Log.w(TAG, "list ${st.where} failed: ${e.kind} ${e.code} ${e.message}")
                 when (e.kind) {
                     Api.Kind.SESSION -> sessionLost(sessionEnded)
                     Api.Kind.NETWORK -> { st.error = networkNote; delay(5000); st.loading = false; load(st, sessionEnded, passwordNote, failed, networkNote); return@launch }

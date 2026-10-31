@@ -20,19 +20,26 @@ class Api(private val store: Store) {
     enum class Kind { NETWORK, BAD, SESSION, API }
     class ApiException(val kind: Kind, val code: Int = 0, msg: String = kind.name) : Exception(msg)
 
-    val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS).build()
-
     val server: String get() = store.server
     val sid: String get() = store.sid
+
+    /** The one HTTP client of the app: it adds the session header to every request that goes to the
+     *  configured server (API calls, thumbnails through Coil, videos through Media3), and to nothing else. */
+    val client: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS)
+        .addInterceptor { chain ->
+            val req = chain.request()
+            val host = Uri.parse(server).host
+            if (sid.isNotEmpty() && host != null && req.url.host.equals(host, ignoreCase = true))
+                chain.proceed(req.newBuilder().header("X-SYNO-TOKEN", sid).build())
+            else chain.proceed(req)
+        }.build()
 
     /** POST form to `path` on `base` (default: the saved server). Returns the JSON body. */
     suspend fun post(path: String, params: Map<String, String>, base: String = server): JSONObject =
         withContext(Dispatchers.IO) {
             val form = FormBody.Builder().also { b -> params.forEach { (k, v) -> b.add(k, v) } }.build()
-            val req = Request.Builder().url(base + path).post(form).also {
-                if (sid.isNotEmpty()) it.header("X-SYNO-TOKEN", sid)
-            }.build()
+            val req = Request.Builder().url(base + path).post(form).build()
             val resp = try { client.newCall(req).execute() } catch (e: IOException) { throw ApiException(Kind.NETWORK) }
             resp.use {
                 val text = it.body?.string() ?: ""
@@ -92,10 +99,8 @@ class Api(private val store: Store) {
         return parseItems(d.optJSONArray("items")).firstOrNull()
     }
 
-    private fun withSid(u: Uri.Builder): String {
-        if (sid.isNotEmpty()) u.appendQueryParameter("PHPSESSID", sid)
-        return u.build().toString()
-    }
+    /** URLs carry no session: the client's interceptor sends it in a header. */
+    private fun withSid(u: Uri.Builder): String = u.build().toString()
 
     /** Thumbnail URL: size small (320 px), large (1280 px) or preview (160 px). */
     fun thumbUrl(item: Item, size: String): String {
@@ -125,13 +130,14 @@ class Api(private val store: Store) {
     }
 
     companion object {
-        /** "photos.example.com/" -> ["https://photos.example.com", "http://photos.example.com"]; a scheme is kept. */
-        fun candidates(typed: String): List<String> {
+        /** "photos.example.com/" -> "https://photos.example.com"; a typed scheme is kept. Plain http is never
+         *  tried on its own: the user has to ask for it (see SetupScreen), so that nobody on the way can
+         *  downgrade the connection. */
+        fun normalize(typed: String): String? {
             val s = typed.trim().trimEnd('/')
-            if (s.isEmpty()) return emptyList()
-            if (s.startsWith("http://") || s.startsWith("https://")) return listOf(s)
-            val host = s.trimStart('/')
-            return listOf("https://$host", "http://$host")
+            if (s.isEmpty()) return null
+            if (s.startsWith("http://") || s.startsWith("https://")) return s
+            return "https://" + s.trimStart('/')
         }
     }
 }

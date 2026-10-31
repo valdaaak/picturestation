@@ -8,15 +8,18 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import coil.Coil
+import coil.ImageLoader
 import org.picturestation.app.ui.BrowseScreen
 import org.picturestation.app.ui.Navy
+import org.picturestation.app.ui.Paper
 import org.picturestation.app.ui.PairScreen
 import org.picturestation.app.ui.PicturestationTheme
 import org.picturestation.app.ui.SettingsScreen
@@ -30,6 +33,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val vm: AppViewModel by viewModels()
         vm.isTv = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+        // thumbnails through the app's OkHttp client, so that the session travels in a header
+        Coil.setImageLoader(ImageLoader.Builder(this).okHttpClient(vm.api.client).build())
         setContent { PicturestationTheme { Root(vm) } }
     }
 }
@@ -40,21 +45,24 @@ fun Root(vm: AppViewModel) {
     val screen = vm.current
     BackHandler(enabled = vm.stack.size > 1) { vm.pop() }
     LaunchedEffect(vm.message) { vm.message?.let { Toast.makeText(ctx, it, Toast.LENGTH_SHORT).show(); vm.message = null } }
-    Box(modifier = Modifier.fillMaxSize().background(Navy)) {
+    Surface(modifier = Modifier.fillMaxSize(), color = Navy, contentColor = Paper) {
         when (screen) {
             is Screen.Setup -> SetupScreen(vm)
             is Screen.Pair -> PairScreen(vm)
             is Screen.Start -> StartScreen(vm)
             is Screen.Settings -> SettingsScreen(vm)
-            is Screen.Browse -> BrowseScreen(
-                vm, screen.state,
-                onOpenAlbum = { vm.push(Screen.Browse(BrowseState(Where(album = it)))) },
-                onOpenLatest = { vm.push(Screen.Browse(BrowseState(Where(latest = true)))) },
-                onOpenMedia = { i, slideshow -> vm.push(Screen.Viewer(screen.state, i, slideshow)) },
-                onSettings = { vm.push(Screen.Settings) },
-                onBack = { vm.pop() },
-            )
-            is Screen.Viewer -> ViewerScreen(vm, screen.state, screen.start, screen.slideshow, onBack = { vm.pop() })
+            // key(): every album gets its own composition, so its effects and scroll state start afresh
+            is Screen.Browse -> key(screen.state) {
+                BrowseScreen(
+                    vm, screen.state,
+                    onOpenAlbum = { vm.push(Screen.Browse(BrowseState(Where(album = it)))) },
+                    onOpenLatest = { vm.push(Screen.Browse(BrowseState(Where(latest = true)))) },
+                    onOpenMedia = { i, slideshow -> vm.push(Screen.Viewer(screen.state, i, slideshow)) },
+                    onSettings = { vm.push(Screen.Settings) },
+                    onBack = { vm.pop() },
+                )
+            }
+            is Screen.Viewer -> key(screen) { ViewerScreen(vm, screen.state, screen.start, screen.slideshow, onBack = { vm.pop() }) }
         }
     }
 }
