@@ -3,6 +3,9 @@ package org.picturestation.app.ui
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -53,9 +56,11 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -131,7 +136,12 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 when (e.key) {
                     Key.DirectionLeft -> { go(-1); true }
                     Key.DirectionRight -> { go(1); true }
-                    Key.DirectionCenter, Key.Enter, Key.DirectionUp, Key.DirectionDown -> { overlay = !overlay; true }
+                    // a TV remote without Play: OK shows the caption and starts the slideshow, OK again shows it and pauses
+                    Key.DirectionCenter, Key.Enter -> {
+                        if (vm.isTv) { playing = !playing; videoPaused = !playing; overlay = true } else overlay = !overlay
+                        true
+                    }
+                    Key.DirectionUp, Key.DirectionDown -> { overlay = !overlay; true }
                     Key.MediaPlay, Key.MediaPlayPause, Key.ProgramRed -> { playing = !playing; overlay = true; true }
                     Key.MediaPause, Key.MediaStop, Key.ProgramGreen -> { playing = false; videoPaused = true; overlay = true; true }
                     else -> false
@@ -143,7 +153,10 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
             if (item.type == "video") VideoPage(
                 vm = vm, item = item, active = page == pager.currentPage, paused = videoPaused,
                 onEnded = { if (playing) go(1) }, onTap = { overlay = !overlay },
-            ) else ZoomableImage(url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay })
+            ) else ZoomableImage(
+                url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay },
+                active = page == pager.currentPage, kenBurns = vm.isTv && playing, durationMs = vm.store.interval * 1000,
+            )
         }
 
         if (overlay) {
@@ -180,13 +193,32 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     }
 }
 
+/** A photo fitted to the screen, zoomable by pinch and double tap. In a slideshow on a TV (`kenBurns`) it grows
+ *  slowly from fitting the screen to filling it, so a portrait photo ends edge to edge; a pause holds the zoom,
+ *  the next photo starts fitted again. */
 @Composable
-private fun ZoomableImage(url: String, onTap: () -> Unit) {
+private fun ZoomableImage(url: String, onTap: () -> Unit, active: Boolean = true, kenBurns: Boolean = false, durationMs: Int = 8000) {
     var scale by remember { mutableStateOf(1f) }
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
     var loading by remember { mutableStateOf(true) }
-    Box(modifier = Modifier.fillMaxSize()
+    var imgSize by remember { mutableStateOf(IntSize.Zero) }
+    var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    val grow = remember { Animatable(1f) }
+    // how much the fitted photo has to grow to cover the screen (1 = it already does)
+    val coverScale = if (imgSize.width > 0 && imgSize.height > 0 && boxSize.width > 0 && boxSize.height > 0) {
+        val fit = minOf(boxSize.width.toFloat() / imgSize.width, boxSize.height.toFloat() / imgSize.height)
+        val cover = maxOf(boxSize.width.toFloat() / imgSize.width, boxSize.height.toFloat() / imgSize.height)
+        cover / fit
+    } else 1f
+    LaunchedEffect(active) { if (!active) grow.snapTo(1f) }
+    LaunchedEffect(kenBurns, active, coverScale) {
+        if (kenBurns && active && coverScale > 1.02f && grow.value < coverScale) {
+            val remaining = (durationMs * (coverScale - grow.value) / (coverScale - 1f)).toInt()
+            grow.animateTo(coverScale, tween(remaining, easing = LinearEasing))
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize().onSizeChanged { boxSize = it }
         .pointerInput(Unit) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { scale = if (scale > 1f) 1f else 2.5f; offsetX = 0f; offsetY = 0f }) }
         .pointerInput(Unit) {
             // pinch zooms; a one-finger drag is ours only while zoomed in, otherwise the pager gets it
@@ -206,8 +238,10 @@ private fun ZoomableImage(url: String, onTap: () -> Unit) {
         }) {
         AsyncImage(
             model = url, contentDescription = null, contentScale = ContentScale.Fit,
-            onSuccess = { loading = false }, onError = { loading = false },
-            modifier = Modifier.fillMaxSize().graphicsLayer(scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY),
+            onSuccess = { loading = false; imgSize = IntSize(it.result.drawable.intrinsicWidth, it.result.drawable.intrinsicHeight) },
+            onError = { loading = false },
+            modifier = Modifier.fillMaxSize().graphicsLayer(
+                scaleX = scale * grow.value, scaleY = scale * grow.value, translationX = offsetX, translationY = offsetY),
         )
         if (loading) CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Paper)
     }

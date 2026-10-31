@@ -27,12 +27,13 @@
     <string name="video_failed">Video sa nedá prehrať.</string>
     <string name="upright_preparing">Otočená kópia videa sa pripravuje, zatiaľ hrá originál.</string>
     <string name="slideshow">Prezentácia</string>
-    <string name="server">Server</string>
-    <string name="signed_in_as">Prihlásený ako</string>
+    <string name="galleries">Galérie</string>
+    <string name="add_gallery">Pridať galériu</string>
+    <string name="remove">Odstrániť</string>
+    <string name="remove_confirm">Stlač ešte raz na odstránenie</string>
+    <string name="cancel">Zrušiť</string>
     <string name="slideshow_interval">Interval prezentácie</string>
     <string name="seconds">%1$d s</string>
-    <string name="sign_out">Odhlásiť toto zariadenie</string>
-    <string name="change_server">Zmeniť server</string>
     <string name="app_version">Verzia appky</string>
     <string name="back">Späť</string>
     <string name="share">Zdieľať</string>

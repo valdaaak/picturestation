@@ -72,7 +72,8 @@ fun BrowseScreen(
     val failed = stringResource(R.string.load_failed)
     val network = stringResource(R.string.network_retry)
     val isRoot = st.where.album == null && !st.where.latest
-    val specials = if (isRoot && vm.showLatest) 1 else 0
+    // tiles before the list on the root: the newest photos and the other paired galleries
+    val specials = (if (isRoot && vm.showLatest) 1 else 0) + (if (isRoot) vm.otherGalleries.size else 0)
     val grid = rememberLazyGridState(initialFirstVisibleItemIndex = st.firstVisible + specials)
 
     val latestNote = stringResource(R.string.update_latest)
@@ -139,7 +140,7 @@ fun BrowseScreen(
                 contentPadding = PaddingValues(if (vm.isTv) 32.dp else 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                if (specials == 1) item(key = SPECIAL_LATEST) {
+                if (isRoot && vm.showLatest) item(key = SPECIAL_LATEST) {
                     Tile(tv = vm.isTv, onClick = onOpenLatest) {
                         Column(modifier = Modifier.fillMaxSize().background(Color(0xFF263040)),
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -147,6 +148,21 @@ fun BrowseScreen(
                             Text(stringResource(R.string.latest_photos), modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp),
                                 color = Paper, fontSize = if (vm.isTv) 20.sp else 13.sp, lineHeight = if (vm.isTv) 24.sp else 15.sp,
                                 textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+                if (isRoot) vm.otherGalleries.forEach { gi ->
+                    val g = vm.galleries[gi]
+                    item(key = "gallery:" + g.base) {
+                        Tile(tv = vm.isTv, onClick = { vm.switchGallery(gi) }) {
+                            Column(modifier = Modifier.fillMaxSize().background(Color(0xFF263040)),
+                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                Image(painterResource(R.drawable.logo_mark), contentDescription = null,
+                                    modifier = Modifier.size(if (vm.isTv) 56.dp else 32.dp))
+                                Text(g.title.ifEmpty { g.base.removePrefix("https://") }, modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp),
+                                    color = Paper, fontSize = if (vm.isTv) 20.sp else 13.sp, lineHeight = if (vm.isTv) 24.sp else 15.sp,
+                                    textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }

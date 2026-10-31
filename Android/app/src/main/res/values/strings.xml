@@ -28,12 +28,13 @@
     <string name="video_failed">The video could not be played.</string>
     <string name="upright_preparing">The upright copy of this video is being prepared; playing the original for now.</string>
     <string name="slideshow">Slideshow</string>
-    <string name="server">Server</string>
-    <string name="signed_in_as">Signed in as</string>
+    <string name="galleries">Galleries</string>
+    <string name="add_gallery">Add gallery</string>
+    <string name="remove">Remove</string>
+    <string name="remove_confirm">Press again to remove</string>
+    <string name="cancel">Cancel</string>
     <string name="slideshow_interval">Slideshow interval</string>
     <string name="seconds">%1$d s</string>
-    <string name="sign_out">Sign out of this device</string>
-    <string name="change_server">Change server</string>
     <string name="app_version">App version</string>
     <string name="back">Back</string>
     <string name="share">Share</string>

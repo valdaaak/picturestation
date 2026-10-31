@@ -71,7 +71,7 @@ private fun Logo() {
 
 @Composable
 fun SetupScreen(vm: AppViewModel) {
-    var typed by remember { mutableStateOf(vm.store.server) }
+    var typed by remember { mutableStateOf(vm.pendingBase) }
     val noAnswer = stringResource(R.string.err_no_answer)
     val notServer = stringResource(R.string.err_not_server)
     val focusManager = LocalFocusManager.current
@@ -109,6 +109,10 @@ fun SetupScreen(vm: AppViewModel) {
                 OutlinedButton(onClick = { typed = http; go(http) }, enabled = !vm.setupBusy,
                     modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.try_http, http)) }
             }
+            if (vm.canCancel) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = { vm.cancelSetup() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.cancel)) }
+            }
         }
     }
 }
@@ -126,12 +130,19 @@ fun PairScreen(vm: AppViewModel) {
             vm.pairCode.ifEmpty { "······" }, fontFamily = FontFamily.Monospace, fontSize = 64.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 8.sp, modifier = Modifier.padding(vertical = 16.dp),
         )
+        Text(vm.pendingBase.removePrefix("https://"), color = Muted, modifier = Modifier.padding(bottom = 12.dp))
         Text(stringResource(R.string.code_help), color = Muted, textAlign = TextAlign.Center,
             modifier = Modifier.widthIn(max = 560.dp))
         Spacer(Modifier.height(8.dp))
         Text(vm.pairNote ?: stringResource(R.string.waiting_approval), color = Muted)
         Spacer(Modifier.height(24.dp))
-        OutlinedButton(onClick = { vm.changeServer() }) { Text(stringResource(R.string.change_address)) }
+        Row {
+            OutlinedButton(onClick = { vm.changeAddress() }) { Text(stringResource(R.string.change_address)) }
+            if (vm.canCancel) {
+                Spacer(Modifier.width(12.dp))
+                TextButton(onClick = { vm.cancelSetup() }) { Text(stringResource(R.string.cancel)) }
+            }
+        }
     }
 }
 
@@ -146,7 +157,7 @@ fun StartScreen(vm: AppViewModel) {
         Spacer(Modifier.height(16.dp))
         Text(vm.startNote ?: stringResource(R.string.connecting), color = Muted)
         Spacer(Modifier.height(24.dp))
-        TextButton(onClick = { vm.changeServer() }) { Text(stringResource(R.string.change_address)) }
+        TextButton(onClick = { vm.changeAddress() }) { Text(stringResource(R.string.change_address)) }
     }
 }
 
@@ -163,11 +174,29 @@ private fun SettingRow(label: String, value: String) {
 fun SettingsScreen(vm: AppViewModel) {
     val intervals = listOf(3, 5, 8, 12, 20, 30)
     var interval by remember { mutableStateOf(vm.store.interval) }
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp).widthIn(max = 640.dp)) {
+    var armed by remember { mutableStateOf(-1) }   // the gallery whose Remove was pressed once
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 640.dp)) {
         Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(bottom = 16.dp))
-        SettingRow(stringResource(R.string.server), vm.store.server)
-        SettingRow(stringResource(R.string.signed_in_as), vm.user.ifEmpty { "–" })
+        Text(stringResource(R.string.galleries), color = Muted, style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(bottom = 4.dp))
+        vm.galleries.forEachIndexed { i, g ->
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(g.title.ifEmpty { g.base.removePrefix("https://") }, color = if (i == vm.active) Amber else Paper)
+                    Text(listOf(g.user, g.base.removePrefix("https://")).filter { it.isNotEmpty() }.joinToString(" · "),
+                        color = Muted, fontSize = 13.sp)
+                }
+                TextButton(onClick = { if (armed == i) { armed = -1; vm.removeGallery(i) } else armed = i }) {
+                    Text(stringResource(if (armed == i) R.string.remove_confirm else R.string.remove))
+                }
+            }
+            HorizontalDivider(color = NavyLight)
+        }
+        OutlinedButton(onClick = { vm.addGallery() }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)) {
+            Text(stringResource(R.string.add_gallery))
+        }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.slideshow_interval))
@@ -199,9 +228,5 @@ fun SettingsScreen(vm: AppViewModel) {
             } else TextButton(onClick = { vm.checkUpdate(byUser = true, latestNote, noneNote) }) { Text(stringResource(R.string.update_check)) }
         }
         HorizontalDivider(color = NavyLight)
-        Spacer(Modifier.height(24.dp))
-        OutlinedButton(onClick = { vm.signOut() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { vm.changeServer() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.change_server)) }
     }
 }

@@ -20,26 +20,33 @@ class Api(private val store: Store) {
     enum class Kind { NETWORK, BAD, SESSION, API }
     class ApiException(val kind: Kind, val code: Int = 0, msg: String = kind.name) : Exception(msg)
 
+    /** The active gallery's base URL and session (see Store). */
     val server: String get() = store.server
     val sid: String get() = store.sid
 
-    /** The one HTTP client of the app: it adds the session header to every request that goes to the
-     *  configured server (API calls, thumbnails through Coil, videos through Media3), and to nothing else. */
+    /** Marks a request that must carry no session (pairing, probing an address). */
+    private object NoSession
+
+    /** The one HTTP client of the app: it adds the active gallery's session header to every request that goes
+     *  to its host (thumbnails through Coil, videos through Media3, the updater) unless the call set its own. */
     val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(40, TimeUnit.SECONDS)
         .addInterceptor { chain ->
             val req = chain.request()
             val host = Uri.parse(server).host
-            if (sid.isNotEmpty() && host != null && req.url.host.equals(host, ignoreCase = true))
+            if (req.header("X-SYNO-TOKEN") == null && req.tag(NoSession::class.java) == null
+                && sid.isNotEmpty() && host != null && req.url.host.equals(host, ignoreCase = true))
                 chain.proceed(req.newBuilder().header("X-SYNO-TOKEN", sid).build())
             else chain.proceed(req)
         }.build()
 
-    /** POST form to `path` on `base` (default: the saved server). Returns the JSON body. */
-    suspend fun post(path: String, params: Map<String, String>, base: String = server): JSONObject =
+    /** POST form to `path` on `base` with the session `sid` (defaults: the active gallery; "" = none). Returns the JSON body. */
+    suspend fun post(path: String, params: Map<String, String>, base: String = server, sid: String = this.sid): JSONObject =
         withContext(Dispatchers.IO) {
             val form = FormBody.Builder().also { b -> params.forEach { (k, v) -> b.add(k, v) } }.build()
-            val req = Request.Builder().url(base + path).post(form).build()
+            val req = Request.Builder().url(base + path).post(form)
+                .also { if (sid.isNotEmpty()) it.header("X-SYNO-TOKEN", sid) else it.tag(NoSession::class.java, NoSession) }
+                .build()
             val resp = try { client.newCall(req).execute() } catch (e: IOException) { throw ApiException(Kind.NETWORK) }
             resp.use {
                 val text = it.body?.string() ?: ""
@@ -52,29 +59,33 @@ class Api(private val store: Store) {
 
     /** DS photo API call; returns `data`. */
     suspend fun call(script: String, api: String, method: String, params: Map<String, String> = emptyMap(),
-                     base: String = server): JSONObject {
+                     base: String = server, sid: String = this.sid): JSONObject {
         val p = HashMap<String, String>(params)
         p["api"] = api; p["method"] = method; p["version"] = "1"
-        val j = post("/photo/webapi/$script", p, base)
+        val j = post("/photo/webapi/$script", p, base, sid)
         if (!j.optBoolean("success")) throw ApiException(Kind.API, j.optJSONObject("error")?.optInt("code") ?: 0)
         return j.optJSONObject("data") ?: j.optJSONArray("data")?.let { JSONObject().put("items", it) } ?: JSONObject()
     }
 
     /** True when `base` answers like Picturestation / Photo Station. */
     suspend fun isServer(base: String): Boolean {
-        val d = call("query.php", "SYNO.API.Info", "query", mapOf("query" to "all"), base)
+        val d = call("query.php", "SYNO.API.Info", "query", mapOf("query" to "all"), base, "")
         return d.has("SYNO.PhotoStation.Auth")
     }
 
-    suspend fun pairCode(deviceName: String): JSONObject = post("/api/tv/code", mapOf("name" to deviceName))
-    suspend fun pairPoll(token: String): JSONObject = post("/api/tv/poll", mapOf("token" to token))
+    /** Pairing of a gallery at `base`: a code to show, then polling until someone approves it there. */
+    suspend fun pairCode(deviceName: String, base: String): JSONObject = post("/api/tv/code", mapOf("name" to deviceName), base, "")
+    suspend fun pairPoll(token: String, base: String): JSONObject = post("/api/tv/poll", mapOf("token" to token), base, "")
 
     suspend fun info(): JSONObject = call("info.php", "SYNO.PhotoStation.Info", "getinfo")
 
     /** The user of the session, "" when the session is gone. */
     suspend fun checkAuth(): String = call("auth.php", "SYNO.PhotoStation.Auth", "checkauth").optString("username", "")
 
-    suspend fun logout() { runCatching { call("auth.php", "SYNO.PhotoStation.Auth", "logout") } }
+    /** Ends a session; by default the active gallery's, or the one given (a gallery being removed). */
+    suspend fun logout(base: String = server, sid: String = this.sid) {
+        runCatching { call("auth.php", "SYNO.PhotoStation.Auth", "logout", emptyMap(), base, sid) }
+    }
 
     /** Albums and items of an album (null = the root). Returns the items and the total. */
     suspend fun listAlbum(albumId: String?, offset: Int, limit: Int, sortBy: String, sortDir: String): Pair<List<Item>, Int> {

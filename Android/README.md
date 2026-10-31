@@ -10,7 +10,15 @@ The app never asks for a password. On the first start it asks for the address of
 example `photos.example.com` (`https://` is tried first, then `http://`), and then shows a code of six
 letters and digits. An administrator opens the gallery in a browser, goes to **Settings, TV**, enters the
 code and chooses the user whose photos the device will see. The device stays signed in until it is removed
-there, or until **Settings, Sign out of this device** in the app.
+there, or until the gallery is removed under **Settings** in the app.
+
+## Several galleries
+
+One app can hold several paired galleries: the main gallery of a server and private galleries on it
+(`photos.example.com/~name`), or galleries on different servers. **Settings, Add gallery** runs the same
+address-and-code flow again; each gallery is approved by its own administrator in its own Settings, TV. The
+other galleries appear as tiles next to "Latest photos" on the start screen, and the app remembers the one
+shown last. A gallery whose device was removed on the server asks for a new code; the others stay.
 
 ## Build
 
@@ -69,15 +77,18 @@ swipe and zoom, video (upright, the player honours the rotation flag), slideshow
 
 | Key | Albums | Viewer |
 |---|---|---|
-| Arrows, OK | move, open | previous / next; OK shows or hides the details |
+| Arrows, OK | move, open | left / right: previous / next; OK: details and slideshow on, OK again: details and pause; up / down: details |
 | Back | one level up | back to the album |
 | Play/pause, Red | | start or stop the slideshow |
 | Pause, Stop, Green | | pause |
 
+A slideshow on a TV zooms every photo slowly from fitting the screen to filling it, so a portrait photo
+ends edge to edge; a pause holds the zoom.
+
 ## Layout
 
-- `app/src/main/kotlin/org/picturestation/app/data/` — the server: `Api` (DS photo API, pairing, URLs of thumbnails and videos), `Store` (server, session, preferences; encrypted), `Model` (items).
-- `AppViewModel` — the screens as a stack, lists with paging, pairing, start-up, sign-out.
+- `app/src/main/kotlin/org/picturestation/app/data/` — the server: `Api` (DS photo API, pairing, URLs of thumbnails and videos), `Store` (the paired galleries with their sessions, encrypted; preferences), `Model` (items).
+- `AppViewModel` — the screens as a stack, lists with paging, pairing, start-up, switching and removing galleries.
 - `ui/` — Compose screens: address, code, albums, viewer (pager, zoom, Media3 video, slideshow), settings.
 
 The server side is the same as for the LG TV app: the DS photo API with the session in the `X-SYNO-TOKEN`

@@ -46,12 +46,21 @@ sealed class Screen {
 
 private const val TAG = "Picturestation"
 
+/**
+ * The app holds a list of paired galleries (Store.galleries) and shows one of them, the active one. Setup and Pair
+ * work on `pendingBase`: a successful pairing adds or replaces that gallery and makes it active. That one flow
+ * serves the first install, "Add gallery", a new code after a lost session, and "Change address".
+ */
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val store = Store(app)
     val api = Api(store)
     val stack = mutableStateListOf<Screen>()
+    var galleries by mutableStateOf(store.galleries)
+    var active by mutableIntStateOf(store.active)
     var title by mutableStateOf("")
     var user by mutableStateOf("")
+    /** The gallery address Setup and Pair work on. */
+    var pendingBase by mutableStateOf("")
     var message by mutableStateOf<String?>(null)   // a short note for the user (toast)
     private var sortBy = "filename"
     private var sortDir = "asc"
@@ -60,18 +69,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val page = 300
 
     init {
-        title = store.title; user = store.user
-        when {
-            store.server.isEmpty() -> stack.add(Screen.Setup)
-            store.sid.isEmpty() -> stack.add(Screen.Pair)
-            else -> stack.add(Screen.Start)
-        }
+        sync()
+        stack.add(if (galleries.isEmpty()) Screen.Setup else Screen.Start)
     }
+
+    /** Mirrors the store into state after a change. */
+    private fun sync() {
+        galleries = store.galleries; active = store.active
+        val g = store.current
+        title = g?.title ?: ""; user = g?.user ?: ""
+    }
+
+    /** Indices of the paired galleries other than the active one: the tiles on the root screen. */
+    val otherGalleries: List<Int> get() = galleries.indices.filter { it != active }
 
     val current: Screen get() = stack.last()
     fun push(s: Screen) { stack.add(s) }
     fun pop(): Boolean { if (stack.size > 1) { stack.removeAt(stack.size - 1); return true }; return false }
     fun reset(s: Screen) { stack.clear(); stack.add(s) }
+    private fun replace(s: Screen) { stack.removeAt(stack.size - 1); stack.add(s) }
 
     val deviceName: String get() = (if (isTv) "Android TV " else "Android ") + (Build.MODEL ?: "")
 
@@ -85,7 +101,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         setupBusy = true; setupError = null; setupHttpOffer = null
         viewModelScope.launch {
             try {
-                if (api.isServer(base)) { store.server = base; store.sid = ""; setupBusy = false; reset(Screen.Pair); return@launch }
+                if (api.isServer(base)) {
+                    pendingBase = base; setupBusy = false
+                    if (stack.size > 1) replace(Screen.Pair) else reset(Screen.Pair)
+                    return@launch
+                }
                 setupError = notServer
             } catch (e: Api.ApiException) {
                 setupError = if (e.kind == Api.Kind.NETWORK) noAnswer else notServer
@@ -97,27 +117,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Setup and Pair can be left when there is a screen below them (adding a gallery) or another gallery to show. */
+    val canCancel: Boolean get() = stack.size > 1 || galleries.any { it.base != pendingBase && store.sidOf(it.base).isNotEmpty() }
+    fun cancelSetup() {
+        stopPairing()
+        if (stack.size > 1) { pop(); return }
+        val i = galleries.indexOfFirst { it.base != pendingBase && store.sidOf(it.base).isNotEmpty() }
+        if (i >= 0) switchGallery(i)
+    }
+    fun changeAddress() {
+        stopPairing()
+        if (stack.size > 1) replace(Screen.Setup) else reset(Screen.Setup)
+    }
+
     // ---------- pairing ----------
     var pairCode by mutableStateOf("")
     var pairNote by mutableStateOf<String?>(null)
     private var pairJob: Job? = null
     fun startPairing(expiredNote: String, networkNote: String) {
         pairJob?.cancel()
+        pairCode = ""
+        val base = pendingBase
         pairJob = viewModelScope.launch {
             var token = ""
             while (true) {
                 if (token.isEmpty()) {
                     try {
-                        val d = api.pairCode(deviceName)
+                        val d = api.pairCode(deviceName, base)
                         token = d.optString("token"); pairCode = d.optString("code")
                     } catch (e: Api.ApiException) { pairNote = networkNote; delay(5000); continue }
                 }
                 delay(3000)
-                val r = try { api.pairPoll(token) } catch (e: Api.ApiException) { pairNote = networkNote; continue }
+                val r = try { api.pairPoll(token, base) } catch (e: Api.ApiException) { pairNote = networkNote; continue }
                 when (r.optString("status")) {
                     "ok" -> {
-                        store.sid = r.optString("sid"); store.user = r.optString("username")
-                        store.title = r.optString("title"); user = store.user; title = store.title
+                        val i = store.upsert(Store.Gallery(base, r.optString("username"), r.optString("title")))
+                        store.setSid(base, r.optString("sid")); store.active = i
+                        sync(); detailCache.clear()
                         reset(Screen.Start); return@launch
                     }
                     "pending" -> pairNote = null
@@ -132,27 +168,50 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var startNote by mutableStateOf<String?>(null)
     fun start(sessionEnded: String, networkNote: String) {
         viewModelScope.launch {
+            val g = store.current ?: run { pendingBase = ""; reset(Screen.Setup); return@launch }
+            pendingBase = g.base
+            if (store.sidOf(g.base).isEmpty()) { reset(Screen.Pair); return@launch }
             while (true) {
                 try {
                     val d = api.info()
-                    title = d.optString("title", title); store.title = title
+                    val t = d.optString("title", g.title)
                     noTimeline = d.optBoolean("disable_timeline", false)
                     sortBy = d.optString("sort_by", "filename"); sortDir = d.optString("sort_direction", "asc")
                     val u = api.checkAuth()
-                    if (u.isEmpty()) { store.sid = ""; pairNote = sessionEnded; reset(Screen.Pair); return@launch }
-                    user = u; store.user = u
+                    if (u.isEmpty()) { sessionLost(sessionEnded); return@launch }
+                    store.upsert(g.copy(user = u, title = t)); sync()
                     reset(Screen.Browse(BrowseState(Where())))
                     return@launch
                 } catch (e: Api.ApiException) {
-                    if (e.kind == Api.Kind.SESSION) { store.sid = ""; pairNote = sessionEnded; reset(Screen.Pair); return@launch }
+                    if (e.kind == Api.Kind.SESSION) { sessionLost(sessionEnded); return@launch }
                     startNote = networkNote; delay(5000)
                 }
             }
         }
     }
 
-    /** A lost session (the device was removed under Settings, TV) sends the app back to a new code. */
-    private fun sessionLost(note: String) { store.sid = ""; pairNote = note; reset(Screen.Pair) }
+    /** A lost session (the device was removed under Settings, TV) sends the gallery back to a new code;
+     *  the other galleries stay paired. */
+    private fun sessionLost(note: String) {
+        store.setSid(store.server, ""); pendingBase = store.server; pairNote = note; reset(Screen.Pair)
+    }
+
+    // ---------- galleries ----------
+    fun switchGallery(i: Int) {
+        if (i !in galleries.indices) return
+        store.active = i; sync(); detailCache.clear()
+        reset(Screen.Start)
+    }
+    fun addGallery() { pendingBase = ""; setupError = null; setupHttpOffer = null; push(Screen.Setup) }
+    fun removeGallery(i: Int) {
+        val g = galleries.getOrNull(i) ?: return
+        val sid = store.sidOf(g.base)
+        if (sid.isNotEmpty()) viewModelScope.launch { api.logout(g.base, sid) }   // the server forgets the device
+        val wasActive = i == active
+        store.remove(i); sync()
+        if (galleries.isEmpty()) { pendingBase = ""; reset(Screen.Setup) }
+        else if (wasActive) switchGallery(store.active)
+    }
 
     // ---------- lists ----------
     val showLatest get() = !noTimeline
@@ -178,7 +237,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** People and place of an item, fetched once. */
+    /** People and place of an item, fetched once (ids are per gallery: cleared on a switch). */
     private val detailCache = HashMap<String, Item>()
     suspend fun details(item: Item): Item? {
         detailCache[item.id]?.let { return it }
@@ -214,10 +273,4 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             updateBusy = false
         }
     }
-
-    // ---------- settings ----------
-    fun signOut() {
-        viewModelScope.launch { api.logout(); store.sid = ""; store.user = ""; user = ""; reset(Screen.Pair) }
-    }
-    fun changeServer() { reset(Screen.Setup) }
 }
