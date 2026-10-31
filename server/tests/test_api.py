@@ -1098,5 +1098,14 @@ check("odstranena telka = session prec", r.headers.get("x-request-error") == "er
       and adm("device_list").json()["devices"] == [], (dict(r.headers), adm("device_list").json()))
 adm("user_delete", {"username": "telka"})
 
+# --- /app/: subory pre appky z DATA/app (APK na stiahnutie) ---
+_appdir = os.path.join(WORK, "data", "app")
+check("/app/ bez priecinka = 404", c.get("/app/x.apk").status_code == 404)
+os.makedirs(_appdir, exist_ok=True)
+open(os.path.join(_appdir, "Picturestation.apk"), "wb").write(b"PK\x03\x04apk")
+r = c.get("/app/Picturestation.apk")
+check("/app/Picturestation.apk sa servuje", r.status_code == 200 and r.content.startswith(b"PK"),
+      (r.status_code, r.headers.get("content-type")))
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)

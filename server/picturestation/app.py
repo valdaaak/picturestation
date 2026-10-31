@@ -990,6 +990,11 @@ async def webapi(req: Request):
 
 
 from .web_version import WEB_DIR  # web/ at the top of the repository, or /opt/picturestation/web
+APP_DIR = os.path.join(config.DATA_DIR, "app")  # files served at /app/ (the Android APK for download)
+try:
+    os.makedirs(APP_DIR, exist_ok=True)
+except OSError:
+    log.warning("cannot create %s", APP_DIR)
 
 
 class WebFiles(StaticFiles):
@@ -1082,6 +1087,8 @@ _routes = Starlette(routes=[
     Route("/api/share/{token}", share_api),
     Route("/api/tv/{op}", pairing.tv_api, methods=["POST", "OPTIONS"]),  # LG TV app pairing
     *admin.routes,
+    # downloads for the apps (the Android APK, version.json for its updater): files put into DATA/app
+    Mount("/app", app=StaticFiles(directory=APP_DIR, check_dir=False), name="app"),
     Mount("/", app=WebFiles(directory=WEB_DIR, html=True), name="web"),
 ], lifespan=lifespan)
 
