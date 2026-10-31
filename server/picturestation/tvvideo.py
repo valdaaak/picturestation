@@ -107,8 +107,12 @@ def _convert(g, rel: str) -> str:
                "-vf", "scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
                "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p",
                "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-movflags", "+faststart", "-f", "mp4", tmp]
-        nice = {"preexec_fn": lambda: os.nice(19)} if hasattr(os, "nice") else {}
-        r = subprocess.run(cmd, capture_output=True, timeout=FFMPEG_TIMEOUT, **nice)
+        # lowest priority through the nice command, never preexec_fn (it can deadlock a forked child
+        # of a multi-threaded server before ffmpeg even starts)
+        nice = shutil.which("nice")
+        if nice:
+            cmd = [nice, "-n", "19"] + cmd
+        r = subprocess.run(cmd, capture_output=True, timeout=FFMPEG_TIMEOUT)
         if r.returncode != 0 or not os.path.exists(tmp) or not os.path.getsize(tmp):
             why = "ffmpeg: " + r.stderr.decode("utf-8", "replace")[-300:].strip()
             log.warning("conversion of %s failed, %s", rel, why)
