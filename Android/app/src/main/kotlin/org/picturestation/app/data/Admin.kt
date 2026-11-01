@@ -77,7 +77,7 @@ class AdminApi(private val api: Api) {
     }
     suspend fun deviceList(): List<Device> = get("device_list").optJSONArray("devices").objects().map { o ->
         Device(o.optInt("id"), o.optString("name"), o.optString("username"), o.optLong("created"),
-            if (o.isNull("last_seen")) null else o.optLong("last_seen"))
+            o.optLong("last_seen").takeIf { it > 0 })   // 0 or null: not used yet
     }
     suspend fun tagNames(): List<String> = get("tag_names").optJSONArray("tags").strings()
     suspend fun movesState(): MovesState = get("moves_state").let { o ->

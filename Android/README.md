@@ -25,8 +25,8 @@ shown last. A gallery whose device was removed on the server asks for a new code
 A user who is an administrator of the gallery gets **Settings, Administration** on a phone or tablet (not on a
 TV): the same functions as the web gallery's Settings, over the same `/api/admin` endpoint. Version 0.2.0 has
 the TV, Users, Groups and Without signing in tabs, the access editor (allow, exclude, remove a rule, allow all
-inside) and, through the menu of an album, Access and Edit album. Shares, General, Galleries and Moves, and the
-viewer's share link, cover and tags, follow in the next versions. Error messages come from the server in the
+inside) and, through the menu of an album, Access, Share by link and Edit album; 0.2.1 adds Shares, General,
+Galleries (main gallery) and Moves. The viewer's share link, cover and tags follow in the next version. Error messages come from the server in the
 device's language (`X-Lang`).
 
 ## Build

@@ -20,8 +20,6 @@ import org.picturestation.app.ui.Muted
 import org.picturestation.app.ui.Navy
 import org.picturestation.app.ui.Paper
 
-/** The tabs this version has; the others follow in the next versions. */
-private val IMPLEMENTED = setOf(AdminTab.TV, AdminTab.USERS, AdminTab.GROUPS, AdminTab.GUEST)
 
 @Composable
 fun tabLabel(t: AdminTab): String = stringResource(when (t) {
@@ -41,7 +39,7 @@ fun AdminScreen(vm: AppViewModel) {
     val st = vm.admin ?: return
     LaunchedEffect(Unit) { vm.adminReload() }
     val info = st.info
-    val tabs = AdminTab.entries.filter { it in IMPLEMENTED && (!it.mainOnly || info?.isMain == true) }
+    val tabs = AdminTab.entries.filter { !it.mainOnly || info?.isMain == true }
     val selected = tabs.indexOf(st.tab).coerceAtLeast(0)
     AdminScaffold(title = stringResource(R.string.admin), onBack = { vm.pop() }) { pad ->
         Column(modifier = Modifier.fillMaxSize().padding(pad)) {
@@ -57,7 +55,10 @@ fun AdminScreen(vm: AppViewModel) {
                 AdminTab.USERS -> UsersTab(vm, st, info)
                 AdminTab.GROUPS -> GroupsTab(vm, st, info)
                 AdminTab.GUEST -> GuestTab(vm, st, info)
-                else -> MutedText(stringResource(R.string.admin_soon), Modifier.padding(16.dp))
+                AdminTab.SHARES -> SharesTab(vm, st)
+                AdminTab.GENERAL -> GeneralTab(vm, st, info)
+                AdminTab.MOVES -> MovesTab(vm, st)
+                AdminTab.GALLERIES -> GalleriesTab(vm, st)
             }
         }
     }

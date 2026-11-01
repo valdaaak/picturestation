@@ -26,6 +26,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import org.picturestation.app.Screen
 import org.picturestation.app.ui.admin.AlbumEditDialog
+import org.picturestation.app.ui.admin.ShareDialog
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -85,7 +86,9 @@ fun BrowseScreen(
     val noneNote = stringResource(R.string.update_none)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     var editAlbum by remember { mutableStateOf(false) }
+    var shareAlbum by remember { mutableStateOf(false) }
     if (editAlbum) st.where.album?.let { AlbumEditDialog(vm, it.path, onDone = { editAlbum = false }) }
+    if (shareAlbum) st.where.album?.let { ShareDialog(vm, it.path, "album", onDone = { shareAlbum = false }) }
     LaunchedEffect(Unit) {
         if (st.stale) { st.stale = false; st.items.clear(); st.total = 0 }
         if (st.items.isEmpty()) vm.load(st, sessionEnded, passwordNote, failed, network)
@@ -130,6 +133,8 @@ fun BrowseScreen(
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.menu_access)) },
                                 onClick = { menu = false; vm.push(Screen.AlbumAccess(album.path)) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_share_link)) },
+                                onClick = { menu = false; shareAlbum = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.menu_edit_album)) },
                                 onClick = { menu = false; editAlbum = true })
                         }

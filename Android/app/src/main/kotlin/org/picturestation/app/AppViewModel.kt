@@ -346,6 +346,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** The gallery's name changed in the administration: the app shows the new one too. */
+    fun setGalleryTitle(t: String) {
+        val g = store.current ?: return
+        store.upsert(g.copy(title = t)); sync()
+    }
+
     /** After an album was renamed or got a new cover: the lists behind the open screens load again when shown. */
     fun markBrowseStale() { stack.forEach { (it as? Screen.Browse)?.state?.stale = true } }
 
