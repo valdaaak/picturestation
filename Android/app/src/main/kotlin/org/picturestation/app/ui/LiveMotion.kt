@@ -56,9 +56,7 @@ fun LiveMotion(vm: AppViewModel, liveId: String, muted: Boolean, crop: Boolean, 
     }
     AndroidView(
         factory = {
-            PlayerView(it).apply {
-                useController = false
-                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+            (android.view.LayoutInflater.from(it).inflate(org.picturestation.app.R.layout.live_player, null) as PlayerView).apply {
                 resizeMode = if (crop) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
                 this.player = player
             }
