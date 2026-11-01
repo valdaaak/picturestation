@@ -4,6 +4,8 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- LG TV app 0.1.4: renews LG's Developer Mode session (1000 hours) at its start, at most once a day, in the background, so the TV does not remove the app.
+
 - Android app 0.2.4: only the video on screen has a player; the neighbouring pages of a video show its thumbnail and download nothing, and leaving a video releases its player at once (several 1080p HEVC videos at the same time made playback stutter on a Chromecast HD).
 
 ## 0.2.0 – 2026-11-01

@@ -36,7 +36,7 @@ The TV can hold several paired galleries: the main gallery of a server and priva
    `npx ares-setup-device` without arguments asks the same questions one by one.
 3. The app is in the TV's launcher from now on. `npm run inspect` opens the web inspector of the running app, where the TV's engine allows it.
 
-**Developer Mode is limited in time** (1000 hours on current firmware; the Developer Mode app shows what is left and has an **Extend** button). When the time runs out, the TV removes the apps installed this way, and you install again. One LG Developer account is signed in on one TV at a time.
+**Developer Mode is limited in time** (1000 hours on current firmware; the Developer Mode app shows what is left and has an **Extend** button). When the time runs out, the TV removes the apps installed this way, and you install again. Since 0.1.4 the Picturestation app renews the session itself: at its start, at most once a day, it launches the Developer Mode app with `extend=true` in the background (the same as `ares-launch com.palmdts.devmode -p extend=true`), and the session is back at 1000 hours. A TV on which the app is opened at least once in 41 days keeps it. One LG Developer account is signed in on one TV at a time.
 
 ## Remote control
 

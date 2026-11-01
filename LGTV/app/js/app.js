@@ -3,7 +3,7 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.3";
+var APP_VERSION = "0.1.4";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 // pendingBase: the gallery address the setup and pairing screens work on
@@ -709,8 +709,29 @@ function settingsScreen() {
   };
 }
 
+// ---------------- Developer Mode ----------------
+// The app is installed through LG's Developer Mode, which ends after 1000 hours and then removes the app.
+// Launching the Developer Mode app with extend=true (what `ares-launch com.palmdts.devmode -p extend=true`
+// does) renews the session in the background; the Picturestation app stays on screen. At most once a day.
+function extendDevMode() {
+  var KEY_EXT = "ps_devmode_extended", now = Date.now(), last = 0;
+  try { last = parseInt(localStorage.getItem(KEY_EXT) || "0", 10) || 0; } catch (e) { /* no storage: try anyway */ }
+  if (now - last < 24 * 3600 * 1000 || typeof PalmServiceBridge === "undefined") return;
+  try {
+    var bridge = new PalmServiceBridge();
+    bridge.onservicecallback = function (msg) {
+      var ok = false;
+      try { ok = JSON.parse(msg).returnValue === true; } catch (e) { /* not JSON */ }
+      if (ok) { try { localStorage.setItem(KEY_EXT, String(now)); } catch (e) { /* ignore */ } }
+    };
+    bridge.call("luna://com.webos.applicationManager/launch",
+      JSON.stringify({ id: "com.palmdts.devmode", params: { extend: true } }));
+  } catch (e) { /* not on a TV, or the call is not allowed: nothing to do */ }
+}
+
 // ---------------- start ----------------
 function main() {
+  extendDevMode();
   initLang();
   UI.init();
   API.load();
