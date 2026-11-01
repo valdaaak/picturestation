@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.picturestation.app.data.AdminApi
 import org.picturestation.app.data.Api
 import org.picturestation.app.data.Item
 import org.picturestation.app.data.Store
@@ -31,6 +32,7 @@ class BrowseState(val where: Where) {
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
     var firstVisible by mutableIntStateOf(0)
+    var stale by mutableStateOf(false)   // reload when shown again (an album was renamed or got a new cover)
     val media: List<Item> get() = items.filter { it.isMedia }
     fun mediaIndexOf(item: Item) = media.indexOf(item)
 }
@@ -42,6 +44,9 @@ sealed class Screen {
     data class Browse(val state: BrowseState) : Screen()
     data class Viewer(val state: BrowseState, val start: Int, val slideshow: Boolean) : Screen()
     data object Settings : Screen()
+    data object Admin : Screen()                                                   // administration, tabs
+    data class Access(val type: String, val name: String, val path: String) : Screen()   // access editor, one level
+    data class AlbumAccess(val path: String) : Screen()                            // who sees an album
 }
 
 private const val TAG = "Picturestation"
@@ -54,6 +59,7 @@ private const val TAG = "Picturestation"
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val store = Store(app)
     val api = Api(store)
+    val adminApi = AdminApi(api)
     val stack = mutableStateListOf<Screen>()
     var galleries by mutableStateOf(store.galleries)
     var active by mutableIntStateOf(store.active)
@@ -61,6 +67,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var user by mutableStateOf("")
     /** The gallery address Setup and Pair work on. */
     var pendingBase by mutableStateOf("")
+    /** The paired user is an administrator of the active gallery (checkauth says so at the start). */
+    var isAdmin by mutableStateOf(false)
+    /** The administration is for phones and tablets; a TV remote cannot type names and passwords. */
+    val showAdmin: Boolean get() = isAdmin && !isTv
+    var admin by mutableStateOf<AdminState?>(null)
     var message by mutableStateOf<String?>(null)   // a short note for the user (toast)
     private var sortBy = "filename"
     private var sortDir = "asc"
@@ -170,6 +181,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val g = store.current ?: run { pendingBase = ""; reset(Screen.Setup); return@launch }
             pendingBase = g.base
+            isAdmin = false; admin = null
             if (store.sidOf(g.base).isEmpty()) { reset(Screen.Pair); return@launch }
             while (true) {
                 try {
@@ -177,9 +189,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val t = d.optString("title", g.title)
                     noTimeline = d.optBoolean("disable_timeline", false)
                     sortBy = d.optString("sort_by", "filename"); sortDir = d.optString("sort_direction", "asc")
-                    val u = api.checkAuth()
-                    if (u.isEmpty()) { sessionLost(sessionEnded); return@launch }
-                    store.upsert(g.copy(user = u, title = t)); sync()
+                    val a = api.checkAuth()
+                    if (a.username.isEmpty()) { sessionLost(sessionEnded); return@launch }
+                    isAdmin = a.isAdmin
+                    store.upsert(g.copy(user = a.username, title = t)); sync()
                     if (autoUpdate()) return@launch   // Android replaces the app now; the user opens the new version
                     reset(Screen.Browse(BrowseState(Where())))
                     return@launch
@@ -194,6 +207,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** A lost session (the device was removed under Settings, TV) sends the gallery back to a new code;
      *  the other galleries stay paired. */
     private fun sessionLost(note: String) {
+        isAdmin = false; admin = null
         store.setSid(store.server, ""); pendingBase = store.server; pairNote = note; reset(Screen.Pair)
     }
 
@@ -201,6 +215,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun switchGallery(i: Int) {
         if (i !in galleries.indices) return
         store.active = i; sync(); detailCache.clear()
+        isAdmin = false; admin = null
         reset(Screen.Start)
     }
     fun addGallery() { pendingBase = ""; setupError = null; setupHttpOffer = null; push(Screen.Setup) }
@@ -244,6 +259,95 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         detailCache[item.id]?.let { return it }
         return try { api.details(item.id)?.also { detailCache[item.id] = it } } catch (e: Api.ApiException) { null }
     }
+    fun forgetDetails(id: String) { detailCache.remove(id) }
+
+    // ---------- administration (the web's Settings, over /api/admin) ----------
+    fun openAdmin() {
+        if (admin == null) admin = AdminState()
+        push(Screen.Admin)
+    }
+
+    /** Fetches the gallery's state and the open tab's list; the screen shows `error` when it fails. */
+    fun adminReload() { viewModelScope.launch { adminLoad() } }
+    private suspend fun adminLoad() {
+        val st = admin ?: return
+        st.loading = true; st.error = null
+        try {
+            st.info = adminApi.state()
+            adminLoadTabNow(st.tab, force = true)
+        } catch (e: Exception) {
+            st.error = adminFail(e, gate = true)
+        }
+        st.loading = false
+    }
+
+    /** The lists that are not part of `state`, loaded when their tab opens (or again after a change). */
+    fun adminLoadTab(tab: AdminTab, force: Boolean = false) { viewModelScope.launch { adminLoadTabNow(tab, force) } }
+    private suspend fun adminLoadTabNow(tab: AdminTab, force: Boolean) {
+        val st = admin ?: return
+        try {
+            when (tab) {
+                AdminTab.TV -> if (force || st.devices == null) st.devices = adminApi.deviceList()
+                AdminTab.SHARES -> if (force || st.shares == null) st.shares = adminApi.shareList()
+                AdminTab.MOVES -> if (force || st.moves == null) st.moves = adminApi.movesState()
+                AdminTab.GALLERIES -> if (st.info?.isMain == true && (force || st.galleries == null)) st.galleries = adminApi.galleriesList()
+                else -> {}
+            }
+        } catch (e: Exception) { adminFail(e) }
+    }
+
+    /** An administration action like the web's act(): run the op, say `ok`, reload; `onDone` gets the error text
+     *  (null on success) so that a dialog can show it next to its fields. */
+    fun adminRun(op: String, body: org.json.JSONObject, ok: String? = null, reload: Boolean = true, onDone: (String?) -> Unit = {}) {
+        val st = admin ?: AdminState().also { admin = it }
+        st.busy = true
+        viewModelScope.launch {
+            try {
+                adminApi.post(op, body)
+                ok?.let { message = it }
+                if (reload) adminLoad()
+                onDone(null)
+            } catch (e: Exception) {
+                onDone(adminFail(e))
+            }
+            st.busy = false
+        }
+    }
+
+    /** A call with a result (access_view, album_get, ...); null and a toast when it fails. */
+    suspend fun <T> adminFetch(block: suspend AdminApi.() -> T): T? =
+        try { block(adminApi) } catch (e: Exception) { adminFail(e); null }
+
+    /** Turns an administration error into the message to show; a lost session goes to a new code, a gatekeeper
+     *  403 (`state`) hides the administration (the user is no administrator any more). */
+    private fun adminFail(e: Exception, gate: Boolean = false): String {
+        val app = getApplication<Application>()
+        val msg = when {
+            e is Api.ApiException && e.kind == Api.Kind.SESSION -> { sessionLost(app.getString(R.string.session_ended)); return "" }
+            e is Api.ApiException && e.kind == Api.Kind.NETWORK -> app.getString(R.string.err_no_answer)
+            e is Api.ApiException && e.kind == Api.Kind.BAD -> app.getString(R.string.load_failed)
+            e is Api.ApiException -> e.message ?: app.getString(R.string.load_failed)
+            else -> e.toString()
+        }
+        if (gate && e is Api.ApiException && e.code == 403) {
+            isAdmin = false; admin = null
+            while (current is Screen.Admin || current is Screen.Access || current is Screen.AlbumAccess) pop()
+        }
+        message = msg
+        return msg
+    }
+
+    /** Pops the access editor up to the level with `path` (the breadcrumbs). */
+    fun popAccessTo(path: String) {
+        while (stack.size > 1) {
+            val c = current
+            if (c !is Screen.Access || c.path == path) return
+            pop()
+        }
+    }
+
+    /** After an album was renamed or got a new cover: the lists behind the open screens load again when shown. */
+    fun markBrowseStale() { stack.forEach { (it as? Screen.Browse)?.state?.stale = true } }
 
     // ---------- updates from the server (/app/version.json) ----------
     var update by mutableStateOf<Updater.Info?>(null)     // a newer version on the server

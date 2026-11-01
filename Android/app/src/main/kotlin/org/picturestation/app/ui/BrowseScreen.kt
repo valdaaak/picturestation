@@ -21,6 +21,11 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import org.picturestation.app.Screen
+import org.picturestation.app.ui.admin.AlbumEditDialog
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
@@ -79,7 +84,10 @@ fun BrowseScreen(
     val latestNote = stringResource(R.string.update_latest)
     val noneNote = stringResource(R.string.update_none)
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    var editAlbum by remember { mutableStateOf(false) }
+    if (editAlbum) st.where.album?.let { AlbumEditDialog(vm, it.path, onDone = { editAlbum = false }) }
     LaunchedEffect(Unit) {
+        if (st.stale) { st.stale = false; st.items.clear(); st.total = 0 }
         if (st.items.isEmpty()) vm.load(st, sessionEnded, passwordNote, failed, network)
         if (isRoot) vm.checkUpdate(byUser = false, latestNote, noneNote)
     }
@@ -114,6 +122,18 @@ fun BrowseScreen(
                 actions = {
                     if (mediaCount > 0) IconButton(onClick = { onOpenMedia(0, true) }) { Icon(Icons.Filled.PlayArrow, stringResource(R.string.slideshow)) }
                     if (isRoot) IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, stringResource(R.string.settings)) }
+                    // an administrator's tools for this album (not the root): who sees it, its title and mode
+                    val album = st.where.album
+                    if (vm.showAdmin && album != null && album.path.isNotEmpty()) {
+                        var menu by remember { mutableStateOf(false) }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more)) }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_access)) },
+                                onClick = { menu = false; vm.push(Screen.AlbumAccess(album.path)) })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_edit_album)) },
+                                onClick = { menu = false; editAlbum = true })
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Navy, titleContentColor = Paper),
             )

@@ -2,6 +2,7 @@
 package org.picturestation.app.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -196,6 +197,17 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         OutlinedButton(onClick = { vm.addGallery() }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 8.dp)) {
             Text(stringResource(R.string.add_gallery))
+        }
+        if (vm.showAdmin) {
+            Row(modifier = Modifier.fillMaxWidth().clickable { vm.openAdmin() }.padding(vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text(stringResource(R.string.admin), color = Amber)
+                    Text(stringResource(R.string.admin_hint), color = Muted, fontSize = 13.sp)
+                }
+                Text("›", color = Muted, fontSize = 22.sp)
+            }
+            HorizontalDivider(color = NavyLight)
         }
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {

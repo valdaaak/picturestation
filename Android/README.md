@@ -20,6 +20,15 @@ address-and-code flow again; each gallery is approved by its own administrator i
 other galleries appear as tiles next to "Latest photos" on the start screen, and the app remembers the one
 shown last. A gallery whose device was removed on the server asks for a new code; the others stay.
 
+## Administration
+
+A user who is an administrator of the gallery gets **Settings, Administration** on a phone or tablet (not on a
+TV): the same functions as the web gallery's Settings, over the same `/api/admin` endpoint. Version 0.2.0 has
+the TV, Users, Groups and Without signing in tabs, the access editor (allow, exclude, remove a rule, allow all
+inside) and, through the menu of an album, Access and Edit album. Shares, General, Galleries and Moves, and the
+viewer's share link, cover and tags, follow in the next versions. Error messages come from the server in the
+device's language (`X-Lang`).
+
 ## Build
 
 Needs the Android SDK (platform 36) and a JDK 17 or later (the wrapper brings Gradle):

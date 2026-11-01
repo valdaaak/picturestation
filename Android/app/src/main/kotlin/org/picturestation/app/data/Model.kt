@@ -19,6 +19,8 @@ data class Item(
     val tvVersion: String?,      // video: none | ready | waiting | unknown
     val place: String?,
     val people: List<String>,
+    val path: String,            // relative path in the library ("" for the root); albums and files alike
+    val tags: List<Pair<String, String>>,   // (id, name) of the description tags, when asked for (details)
 ) {
     val isMedia get() = type == "photo" || type == "video"
 }
@@ -33,8 +35,16 @@ fun parseItem(o: JSONObject): Item {
     info.optJSONArray("people")?.let { arr ->
         for (i in 0 until arr.length()) arr.optJSONObject(i)?.optString("name")?.takeIf { it.isNotEmpty() }?.let(people::add)
     }
+    val tags = ArrayList<Pair<String, String>>()
+    info.optJSONArray("tags")?.let { arr ->
+        for (i in 0 until arr.length()) arr.optJSONObject(i)?.let { tags.add(it.optString("id") to it.optString("name")) }
+    }
+    // the server sends file_location for files and albums and sharepath for albums; the id carries the path too
+    val id = o.optString("id")
+    val path = add.optString("file_location", "").ifEmpty { info.optString("sharepath", "") }.trim('/')
+        .ifEmpty { decodeIdPath(id) ?: "" }
     return Item(
-        id = o.optString("id"),
+        id = id,
         type = o.optString("type", "photo"),
         name = name,
         title = info.optString("title", "").ifEmpty { name },
@@ -47,6 +57,8 @@ fun parseItem(o: JSONObject): Item {
         tvVersion = vc?.optString("tv_version", "")?.ifEmpty { null },
         place = info.optString("place", "").ifEmpty { null },
         people = people,
+        path = path,
+        tags = tags,
     )
 }
 

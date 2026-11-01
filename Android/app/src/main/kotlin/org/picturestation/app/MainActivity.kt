@@ -26,6 +26,9 @@ import org.picturestation.app.ui.SettingsScreen
 import org.picturestation.app.ui.SetupScreen
 import org.picturestation.app.ui.StartScreen
 import org.picturestation.app.ui.ViewerScreen
+import org.picturestation.app.ui.admin.AccessScreen
+import org.picturestation.app.ui.admin.AdminScreen
+import org.picturestation.app.ui.admin.AlbumAccessScreen
 
 /** One activity for phones, tablets and Android TV; the screens come from the view model's stack. */
 class MainActivity : ComponentActivity() {
@@ -63,6 +66,9 @@ fun Root(vm: AppViewModel) {
                 )
             }
             is Screen.Viewer -> key(screen) { ViewerScreen(vm, screen.state, screen.start, screen.slideshow, onBack = { vm.pop() }) }
+            is Screen.Admin -> AdminScreen(vm)
+            is Screen.Access -> key(screen) { AccessScreen(vm, screen) }
+            is Screen.AlbumAccess -> key(screen) { AlbumAccessScreen(vm, screen.path) }
         }
     }
 }

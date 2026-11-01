@@ -79,8 +79,11 @@ class Api(private val store: Store) {
 
     suspend fun info(): JSONObject = call("info.php", "SYNO.PhotoStation.Info", "getinfo")
 
-    /** The user of the session, "" when the session is gone. */
-    suspend fun checkAuth(): String = call("auth.php", "SYNO.PhotoStation.Auth", "checkauth").optString("username", "")
+    /** Who the session belongs to; the name is "" when the session is gone. */
+    data class Auth(val username: String, val isAdmin: Boolean)
+    suspend fun checkAuth(): Auth = call("auth.php", "SYNO.PhotoStation.Auth", "checkauth").let {
+        Auth(it.optString("username", ""), it.optBoolean("is_admin", false))
+    }
 
     /** Ends a session; by default the active gallery's, or the one given (a gallery being removed). */
     suspend fun logout(base: String = server, sid: String = this.sid) {
