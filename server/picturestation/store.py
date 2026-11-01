@@ -584,6 +584,11 @@ def device_delete(id_: int):
         drop_session(row["sid"])
 
 
+def device_rename(id_: int, name: str) -> bool:
+    """The administrator's own name for a device ("Living room"); False when there is no such device."""
+    return db().execute("UPDATE devices SET name=? WHERE id=?", (name, id_)).rowcount > 0
+
+
 def purge_sessions():
     db().execute("DELETE FROM sessions WHERE expires<?", (int(time.time()),))
     db().execute("DELETE FROM unlocks WHERE sid NOT IN (SELECT sid FROM sessions)")

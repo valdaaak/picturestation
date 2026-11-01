@@ -455,6 +455,15 @@ def device_delete(_me, b):
     return {"ok": True}
 
 
+def device_rename(_me, b):
+    name = " ".join(str(b.get("name") or "").split())[:60]   # the same shape as the name a TV sends (pairing.py)
+    if not name:
+        raise AdminError("Enter a name.")
+    if not store.device_rename(int(b.get("id") or 0), name):
+        raise AdminError("No such device.")
+    return {"ok": True, "name": name}
+
+
 def _file_rel(b) -> str:
     try:
         rel = ids.clean_rel(b.get("path") or "")
@@ -687,7 +696,7 @@ OPS = {
     "smart_save": smart_save, "smart_delete": smart_delete,
     "comment_delete": comment_delete,
     "share_create": share_create, "share_list": share_list, "share_delete": share_delete,
-    "device_pair": device_pair, "device_list": device_list, "device_delete": device_delete,
+    "device_pair": device_pair, "device_list": device_list, "device_delete": device_delete, "device_rename": device_rename,
     "album_get": album_get, "album_set": album_set,
     "state": state, "user_create": user_create, "user_update": user_update, "user_delete": user_delete,
     "group_create": group_create, "group_update": group_update, "group_delete": group_delete,

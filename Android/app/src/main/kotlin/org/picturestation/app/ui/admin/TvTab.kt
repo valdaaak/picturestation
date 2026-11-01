@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +45,7 @@ fun TvTab(vm: AppViewModel, st: AdminState, info: AdminInfo) {
     var user by remember { mutableStateOf(vm.user) }
     var error by remember { mutableStateOf<String?>(null) }
     var removing by remember { mutableStateOf<Device?>(null) }
+    var renaming by remember { mutableStateOf<Device?>(null) }
     val okAllowed = stringResource(R.string.tv_allowed)
     val okRemoved = stringResource(R.string.tv_removed)
     LaunchedEffect(Unit) { vm.adminLoadTab(AdminTab.TV) }
@@ -77,9 +79,10 @@ fun TvTab(vm: AppViewModel, st: AdminState, info: AdminInfo) {
         when {
             devs == null -> item { Spinner() }
             devs.isEmpty() -> item { MutedText(stringResource(R.string.tv_none)) }
-            else -> items(devs, key = { it.id }) { d -> DeviceCard(d) { removing = d } }
+            else -> items(devs, key = { it.id }) { d -> DeviceCard(d, onRename = { renaming = d }, onRemove = { removing = d }) }
         }
     }
+    renaming?.let { d -> RenameDialog(vm, d) { renaming = null } }
     removing?.let { d ->
         ConfirmDialog(text = stringResource(R.string.tv_remove_q), confirmLabel = stringResource(R.string.remove),
             onConfirm = { vm.adminRun("device_delete", json("id" to d.id), ok = okRemoved) }, onDismiss = { removing = null })
@@ -87,7 +90,7 @@ fun TvTab(vm: AppViewModel, st: AdminState, info: AdminInfo) {
 }
 
 @Composable
-private fun DeviceCard(d: Device, onRemove: () -> Unit) {
+private fun DeviceCard(d: Device, onRename: () -> Unit, onRemove: () -> Unit) {
     AdminCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -96,7 +99,40 @@ private fun DeviceCard(d: Device, onRemove: () -> Unit) {
                 val seen = d.lastSeen?.let { stringResource(R.string.tv_last_seen, fmtDay(it)) } ?: stringResource(R.string.tv_not_used)
                 MutedText(stringResource(R.string.tv_allowed_on, fmtDay(d.created)) + " · " + seen)
             }
-            TextButton(onClick = onRemove) { Text(stringResource(R.string.remove), color = Danger) }
+            Column(horizontalAlignment = Alignment.End) {
+                TextButton(onClick = onRename, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.tv_rename)) }
+                TextButton(onClick = onRemove, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(stringResource(R.string.remove), color = Danger) }
+            }
         }
     }
+}
+
+/** The administrator's own name for a device ("Living room" instead of the model the TV sent). */
+@Composable
+private fun RenameDialog(vm: AppViewModel, d: Device, onDone: () -> Unit) {
+    var name by remember { mutableStateOf(d.name) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val okRenamed = stringResource(R.string.tv_renamed)
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text(stringResource(R.string.tv_rename_title)) },
+        text = {
+            Column {
+                FormField(stringResource(R.string.name), name, { name = it }, maxLength = 60)
+                InlineError(error)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    error = null
+                    vm.adminRun("device_rename", json("id" to d.id, "name" to name.trim()), ok = okRenamed) { e ->
+                        if (e == null) onDone() else error = e
+                    }
+                },
+                enabled = name.isNotBlank(),
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDone) { Text(stringResource(R.string.cancel)) } },
+    )
 }

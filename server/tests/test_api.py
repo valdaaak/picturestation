@@ -1091,6 +1091,17 @@ check("telka je prihlasena", r["data"]["username"] == "telka", r)
 devs = adm("device_list").json()["devices"]
 check("zoznam teliek", len(devs) == 1 and devs[0]["name"] == "55UH8507-ZA" and devs[0]["username"] == "telka"
       and devs[0]["last_seen"] > 0 and "sid" not in devs[0], devs)
+r = adm("device_rename", {"id": devs[0]["id"], "name": "  Obývačka \n TV  "})
+check("premenovanie telky", r.status_code == 200 and r.json()["name"] == "Obývačka TV"
+      and adm("device_list").json()["devices"][0]["name"] == "Obývačka TV", (r.status_code, r.text))
+r = adm("device_rename", {"id": devs[0]["id"], "name": "   "})
+check("prazdny nazov telky = chyba", r.status_code == 400 and r.json()["error"] == "Enter a name.", (r.status_code, r.text))
+r = adm("device_rename", {"id": devs[0]["id"] + 1000, "name": "Nikde"})
+check("neznama telka = chyba", r.status_code == 400 and r.json()["error"] == "No such device.", (r.status_code, r.text))
+r = c.post("/api/admin/device_rename", json={"id": devs[0]["id"], "name": "X"}, headers={"X-Lang": "sk"})
+check("premenovanie po slovensky", r.status_code == 200 and adm("device_list").json()["devices"][0]["name"] == "X", r.text)
+r = c.post("/api/admin/device_rename", json={"id": devs[0]["id"], "name": ""}, headers={"X-Lang": "sk"})
+check("chyba po slovensky", r.status_code == 400 and r.json()["error"] == "Zadaj názov.", r.text)
 adm("device_delete", {"id": devs[0]["id"]})
 r = tv2.post(W + "album.php", data={"api": "SYNO.PhotoStation.Album", "method": "list", "version": "1", "offset": "0",
                                     "limit": "1"}, headers={"X-SYNO-TOKEN": dsid})

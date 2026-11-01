@@ -87,6 +87,9 @@
     <string name="tv_not_used">not used yet</string>
     <string name="tv_remove_q">Remove this TV? It will ask for a new code.</string>
     <string name="tv_removed">TV removed.</string>
+    <string name="tv_rename">Rename</string>
+    <string name="tv_rename_title">Name of the device</string>
+    <string name="tv_renamed">Device renamed.</string>
     <string name="user_new">New user</string>
     <string name="user_admin">admin</string>
     <string name="user_admin_long">admin (sees everything and can change settings)</string>

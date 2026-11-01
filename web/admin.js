@@ -624,9 +624,14 @@ const Admin = (() => {
           h("div", null, h("strong", null, d.name), " ", h("span", { class: "tag" }, d.username),
             h("div", { class: "muted" }, t("allowed {date}", { date: fmtDay(d.created) }) + " · "
               + (d.last_seen ? t("last seen {date}", { date: fmtDay(d.last_seen) }) : t("not used yet")))),
-          h("div", { class: "card-a" }, h("button", { type: "button", class: "link danger", onclick: () => {
-            if (confirm(t("Remove this TV? It will ask for a new code."))) act("device_delete", { id: d.id }, t("TV removed."));
-          } }, t("Remove"))))));
+          h("div", { class: "card-a" },
+            h("button", { type: "button", class: "link", onclick: () => {
+              const name = prompt(t("Name of the device"), d.name);
+              if (name !== null && name.trim() && name.trim() !== d.name) act("device_rename", { id: d.id, name }, t("Device renamed."));
+            } }, t("Rename")),
+            h("button", { type: "button", class: "link danger", onclick: () => {
+              if (confirm(t("Remove this TV? It will ask for a new code."))) act("device_delete", { id: d.id }, t("TV removed."));
+            } }, t("Remove"))))));
     }
   }
 

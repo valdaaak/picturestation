@@ -19,6 +19,8 @@ SK = {
     "Group does not exist.": "Skupina neexistuje.",
     "Unknown or expired code. Check it on the TV; after 10 minutes it shows a new one.":
         "Neznámy alebo vypršaný kód. Skontroluj ho na telke; po 10 minútach ukáže nový.",
+    "Enter a name.": "Zadaj názov.",
+    "No such device.": "Také zariadenie neexistuje.",
     "Enter the album password.": "Zadaj heslo albumu.",
     "Password must have at least 8 characters.": "Heslo musí mať aspoň 8 znakov.",
     "Invalid name.": "Neplatné meno.",
