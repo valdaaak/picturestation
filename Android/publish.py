@@ -6,6 +6,7 @@
 
 Then put DIR's two files into DATA/app on the server (/var/lib/picturestation/app/). The app on the phones
 and TVs checks version.json at start and offers the update."""
+import hashlib
 import json
 import os
 import re
@@ -27,8 +28,10 @@ def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
     shutil.copyfile(APK, os.path.join(out, "Picturestation.apk"))
+    with open(APK, "rb") as fh:
+        sha = hashlib.sha256(fh.read()).hexdigest()   # the app checks the download against it
     with open(os.path.join(out, "version.json"), "w", encoding="utf-8") as fh:
-        json.dump({"versionCode": code, "versionName": name, "apk": "Picturestation.apk"}, fh)
+        json.dump({"versionCode": code, "versionName": name, "apk": "Picturestation.apk", "sha256": sha}, fh)
     print(f"Picturestation {name} (versionCode {code}) in {out}")
 
 

@@ -287,7 +287,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         Updater.onResult = { ok, msg -> done.complete(ok to msg) }
         return try {
             val file = withContext(Dispatchers.IO) { Updater.download(ctx, api, info) }
-            withContext(Dispatchers.IO) { Updater.install(app, file) }
+            withContext(Dispatchers.IO) { Updater.install(app, file, silent = Updater.canInstallSilently(app, api)) }
             val (ok, msg) = kotlinx.coroutines.withTimeout(60_000) { done.await() }
             when {
                 ok -> true

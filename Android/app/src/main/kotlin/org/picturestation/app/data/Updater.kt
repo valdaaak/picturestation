@@ -28,7 +28,8 @@ object Updater {
     private const val TAG = "Picturestation"
     const val ACTION_STATUS = "org.picturestation.app.UPDATE_STATUS"
 
-    data class Info(val versionCode: Int, val versionName: String, val apk: String)
+    /** `sha256`: hex digest of the APK when version.json carries one (publish.py writes it); checked after the download. */
+    data class Info(val versionCode: Int, val versionName: String, val apk: String, val sha256: String = "")
 
     /** Told what the installer answered: success, a failure message, or null when the user has to confirm. */
     @Volatile var onResult: ((success: Boolean, message: String?) -> Unit)? = null
@@ -39,8 +40,10 @@ object Updater {
         return try {
             api.client.newCall(Request.Builder().url(api.server + "/app/version.json").get().build()).execute().use { resp ->
                 if (!resp.isSuccessful) return null
+                if (!sameOrigin(resp, api)) return null
                 val o = JSONObject(resp.body?.string() ?: "")
-                Info(o.optInt("versionCode", 0), o.optString("versionName", ""), o.optString("apk", "Picturestation.apk"))
+                Info(o.optInt("versionCode", 0), o.optString("versionName", ""), o.optString("apk", "Picturestation.apk"),
+                    o.optString("sha256", "").lowercase())
             }
         } catch (e: Exception) {
             null
@@ -59,6 +62,14 @@ object Updater {
     /** An APK larger than this is not an update of this app. */
     private const val MAX_APK_BYTES = 100L * 1024 * 1024
 
+    /** The answer must come from the server's own scheme and host: a redirect elsewhere (https to http, another
+     *  host) is not followed for update files. */
+    private fun sameOrigin(resp: okhttp3.Response, api: Api): Boolean {
+        val want = Uri.parse(api.server)
+        val got = resp.request.url
+        return got.scheme == want.scheme && got.host.equals(want.host, ignoreCase = true)
+    }
+
     fun openInstallPermission(ctx: Context) {
         ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -69,8 +80,10 @@ object Updater {
         val name = File(info.apk).name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifEmpty { "Picturestation.apk" }
         api.client.newCall(Request.Builder().url(api.server + "/app/" + name).get().build()).execute().use { resp ->
             if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
+            if (!sameOrigin(resp, api)) throw IllegalStateException("redirected away from the server")
             val dir = File(ctx.cacheDir, "update").apply { mkdirs() }
             val file = File(dir, "update.apk")
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
             var total = 0L
             resp.body!!.byteStream().use { input ->
                 file.outputStream().use { out ->
@@ -79,20 +92,23 @@ object Updater {
                         val n = input.read(buf); if (n < 0) break
                         total += n
                         if (total > MAX_APK_BYTES) { file.delete(); throw IllegalStateException("APK too large") }
-                        out.write(buf, 0, n)
+                        out.write(buf, 0, n); digest.update(buf, 0, n)
                     }
                 }
             }
+            val sum = digest.digest().joinToString("") { "%02x".format(it) }
+            if (info.sha256.isNotEmpty() && sum != info.sha256) { file.delete(); throw IllegalStateException("APK checksum mismatch") }
             return file
         }
     }
 
-    /** Installs the downloaded APK over this app; the answer comes to [onResult] through [UpdateReceiver]. */
-    fun install(ctx: Context, file: File) {
+    /** Installs the downloaded APK over this app; the answer comes to [onResult] through [UpdateReceiver].
+     *  `silent`: ask Android to skip its confirmation (only when [canInstallSilently] said so). */
+    fun install(ctx: Context, file: File, silent: Boolean) {
         val installer = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(ctx.packageName)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        if (silent && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
             params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         val id = installer.createSession(params)
         installer.openSession(id).use { session ->
