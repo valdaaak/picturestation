@@ -26,7 +26,8 @@ A user who is an administrator of the gallery gets **Settings, Administration** 
 TV): the same functions as the web gallery's Settings, over the same `/api/admin` endpoint. Version 0.2.0 has
 the TV, Users, Groups and Without signing in tabs, the access editor (allow, exclude, remove a rule, allow all
 inside) and, through the menu of an album, Access, Share by link and Edit album; 0.2.1 adds Shares, General,
-Galleries (main gallery) and Moves. The viewer's share link, cover and tags follow in the next version. Error messages come from the server in the
+Galleries (main gallery) and Moves; 0.2.2 adds the viewer's menu with Share by link, Set as album cover and Tags.
+Comments and smart albums are not in the app yet. Error messages come from the server in the
 device's language (`X-Lang`).
 
 ## Build

@@ -27,7 +27,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import org.picturestation.app.ui.admin.CoverDialog
+import org.picturestation.app.ui.admin.ShareDialog
+import org.picturestation.app.ui.admin.TagsDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -98,6 +104,8 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     var playing by remember { mutableStateOf(slideshow) }
     var videoPaused by remember { mutableStateOf(false) }
     var details by remember { mutableStateOf<Item?>(null) }
+    var adminAction by remember { mutableStateOf<String?>(null) }   // share | cover | tags
+    var adminMenu by remember { mutableStateOf(false) }
     val sessionEnded = stringResource(R.string.session_ended)
     val passwordNote = stringResource(R.string.album_password)
     val failed = stringResource(R.string.load_failed)
@@ -126,7 +134,7 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
         if (playing && current?.type == "photo") { delay(vm.store.interval * 1000L); go(1) }
     }
     // the overlay hides itself a moment after a change
-    LaunchedEffect(overlay, current?.id) { if (overlay) { delay(3500); overlay = false } }
+    LaunchedEffect(overlay, current?.id, adminMenu) { if (overlay && !adminMenu) { delay(3500); overlay = false } }
     LaunchedEffect(Unit) { if (vm.isTv) focus.requestFocus() }
 
     Box(
@@ -175,6 +183,15 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 if (!vm.isTv) IconButton(onClick = { current?.let { share(vm, ctx, it) } }) {
                     Icon(Icons.Filled.Share, stringResource(R.string.share), tint = Paper)
                 }
+                // an administrator's tools for this photo: a link for others, the album's cover, tags
+                if (vm.showAdmin && current?.path?.isNotEmpty() == true) {
+                    IconButton(onClick = { adminMenu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Paper) }
+                    DropdownMenu(expanded = adminMenu, onDismissRequest = { adminMenu = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.menu_share_link)) }, onClick = { adminMenu = false; playing = false; adminAction = "share" })
+                        if (current?.type == "photo") DropdownMenuItem(text = { Text(stringResource(R.string.cover_set)) }, onClick = { adminMenu = false; playing = false; adminAction = "cover" })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.tags)) }, onClick = { adminMenu = false; playing = false; adminAction = "tags" })
+                    }
+                }
             }
             Column(
                 modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter)
@@ -189,6 +206,13 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
             }
         } else if (playing) {
             Icon(Icons.Filled.PlayArrow, null, tint = Focus, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp))
+        }
+        current?.let { item ->
+            when (adminAction) {
+                "share" -> ShareDialog(vm, item.path, item.type, onDone = { adminAction = null })
+                "cover" -> CoverDialog(vm, item.path, onDone = { adminAction = null })
+                "tags" -> TagsDialog(vm, item, onDone = { adminAction = null; details = null; scope.launch { vm.forgetDetails(item.id); details = vm.details(item) } })
+            }
         }
     }
 }

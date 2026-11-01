@@ -289,4 +289,16 @@
         <item quantity="few">%1$d zaindexované súbory</item>
         <item quantity="other">%1$d zaindexovaných súborov</item>
     </plurals>
+    <!-- správa 0.2.2: prehliadač -->
+    <string name="cover_set">Nastaviť ako titulnú</string>
+    <string name="cover_title">Titulná fotka pre album</string>
+    <string name="cover_hint">Fotka môže byť titulnou pre ktorýkoľvek album nad ňou.</string>
+    <string name="cover_this">tento album</string>
+    <string name="cover_root">Fotka v koreni nepatrí do žiadneho albumu.</string>
+    <string name="cover_done">Titulná fotka nastavená pre album %1$s.</string>
+    <string name="tags">Tagy</string>
+    <string name="tag_add">Pridať tag</string>
+    <string name="tags_none">Zatiaľ žiadne tagy.</string>
+    <string name="tag_added">Tag pridaný.</string>
+    <string name="tag_removed">Tag odobratý.</string>
 </resources>

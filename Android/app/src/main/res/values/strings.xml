@@ -284,4 +284,16 @@
         <item quantity="one">%1$d indexed file</item>
         <item quantity="other">%1$d indexed files</item>
     </plurals>
+    <!-- administration 0.2.2: the viewer -->
+    <string name="cover_set">Set as album cover</string>
+    <string name="cover_title">Cover photo for album</string>
+    <string name="cover_hint">The photo can be the cover of any album above it.</string>
+    <string name="cover_this">this album</string>
+    <string name="cover_root">A photo in the root does not belong to any album.</string>
+    <string name="cover_done">Cover photo set for album %1$s.</string>
+    <string name="tags">Tags</string>
+    <string name="tag_add">Add tag</string>
+    <string name="tags_none">No tags yet.</string>
+    <string name="tag_added">Tag added.</string>
+    <string name="tag_removed">Tag removed.</string>
 </resources>
