@@ -261,6 +261,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun forgetDetails(id: String) { detailCache.remove(id) }
 
+    /** Prefetch the Live Photo motions around position [center] of [items] (nearest first, at most 10). */
+    fun prefetchLive(items: List<Item>, center: Int, reach: Int = 8) {
+        val ids = (0..reach).flatMap { listOf(center + it, center - it) }.distinct()
+            .mapNotNull { i -> items.getOrNull(i)?.takeIf { it.type == "photo" }?.live }.distinct().take(10)
+        org.picturestation.app.data.LiveCache.prefetch(getApplication(), viewModelScope, api, ids)
+    }
+
     // ---------- administration (the web's Settings, over /api/admin) ----------
     fun openAdmin() {
         if (admin == null) admin = AdminState()

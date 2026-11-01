@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.datasource.okhttp.OkHttpDataSource
+import org.picturestation.app.data.LiveCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
@@ -37,10 +37,11 @@ fun LiveMotion(vm: AppViewModel, liveId: String, muted: Boolean, crop: Boolean, 
     val ctx = LocalContext.current
     var shown by remember(liveId) { mutableStateOf(false) }
     val player = remember(liveId) {
-        val sources = DefaultMediaSourceFactory(OkHttpDataSource.Factory(vm.api.client))
+        // through the clip cache: a prefetched motion starts at once (LiveCache)
+        val sources = DefaultMediaSourceFactory(LiveCache.factory(ctx, vm.api))
         ExoPlayer.Builder(ctx).setMediaSourceFactory(sources).build().apply {
             volume = if (muted) 0f else 1f
-            setMediaItem(MediaItem.fromUri(vm.api.videoUrl(liveId, "web")))
+            setMediaItem(LiveCache.mediaItem(vm.api, liveId))
             playWhenReady = true
             prepare()
         }

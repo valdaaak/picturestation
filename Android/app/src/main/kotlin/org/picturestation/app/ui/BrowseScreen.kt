@@ -195,6 +195,8 @@ fun BrowseScreen(
                     Tile(tv = vm.isTv, onClick = {
                         if (it.type == "album") onOpenAlbum(it) else onOpenMedia(st.mediaIndexOf(it), false)
                     }) { focused ->
+                        // the Live Photo motions around the focus are downloaded ahead (small clips, LiveCache)
+                        LaunchedEffect(focused) { if (focused && vm.isTv) vm.prefetchLive(st.items, i) }
                         if (it.hasThumb) AsyncImage(
                             model = vm.api.thumbUrl(it, "small"), contentDescription = it.title,
                             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),

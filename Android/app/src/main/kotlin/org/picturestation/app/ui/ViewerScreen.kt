@@ -132,13 +132,16 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
         liveId = if (!firstPage && current?.type == "photo" && current.live != null) current.id else null
         firstPage = false
         current ?: return@LaunchedEffect
+        vm.prefetchLive(media, pager.currentPage, reach = 3)
         st.firstVisible = st.items.indexOf(current).coerceAtLeast(0)
         if (pager.currentPage >= media.size - 8) vm.load(st, sessionEnded, passwordNote, failed, network)
         details = vm.details(current)
     }
     // slideshow of photos; a video advances when it ends
-    LaunchedEffect(playing, current?.id) {
-        if (playing && current?.type == "photo") { delay(vm.store.interval * 1000L); go(1) }
+    // (a Live Photo: the interval and the zoom start when its motion has played)
+    val livePlaying = current != null && liveId == current.id
+    LaunchedEffect(playing, current?.id, livePlaying) {
+        if (playing && current?.type == "photo" && !livePlaying) { delay(vm.store.interval * 1000L); go(1) }
     }
     // the overlay hides itself a moment after a change
     LaunchedEffect(overlay, current?.id, adminMenu) { if (overlay && !adminMenu) { delay(3500); overlay = false } }
@@ -174,11 +177,13 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
             ) else if (item.type == "video") ZoomableImage(
                 url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay }, active = false,
             ) else Box(modifier = Modifier.fillMaxSize()) {
+                val live = item.live
+                // the slideshow zoom waits until the motion of a Live Photo has played (the clip is not zoomed)
                 ZoomableImage(
                     url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay },
-                    active = page == pager.currentPage, kenBurns = vm.isTv && playing, durationMs = vm.store.interval * 1000,
+                    active = page == pager.currentPage, kenBurns = vm.isTv && playing && liveId != item.id,
+                    durationMs = vm.store.interval * 1000,
                 )
-                val live = item.live
                 if (live != null && liveId == item.id && page == pager.currentPage)
                     LiveMotion(vm, live, muted = vm.isTv, crop = false) { liveId = null }
             }

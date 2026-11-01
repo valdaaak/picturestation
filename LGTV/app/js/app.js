@@ -3,7 +3,7 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.5";
+var APP_VERSION = "0.1.6";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 // pendingBase: the gallery address the setup and pairing screens work on
@@ -504,7 +504,7 @@ function viewerScreen(browse, index, autoplay) {
 
   var list = browse.media;
   var cur = -1, playing = false, timer = null, hideTimer = null, alive = true, current = null, preloads = [];
-  var firstShow = true, liveV = null;
+  var firstShow = true, liveV = null, imgReady = false;   // imgReady: the photo under the motion has loaded
 
   // Live Photo: the motion plays once over the photo when the viewer moves to it (arrows, slideshow), muted;
   // the photo opened from the grid only goes full screen (its motion played in the grid already)
@@ -521,15 +521,22 @@ function viewerScreen(browse, index, autoplay) {
     v.setAttribute("muted", "");
     v.setAttribute("autoplay", "");
     v.addEventListener("playing", function () { v.className = "full live on"; }, false);
-    v.addEventListener("ended", stopLiveV, false);
-    v.addEventListener("error", stopLiveV, false);
+    v.addEventListener("ended", liveDone, false);
+    v.addEventListener("error", liveDone, false);
     v.src = API.video({ id: item.info.live });
     stage.appendChild(v);
     liveV = v;
   }
 
+  // the motion has played: the slideshow zoom and interval of the photo start now (the clip is not zoomed)
+  function liveDone() {
+    stopLiveV();
+    if (imgReady && current && current.tagName === "IMG") { zoomStart(current); schedule(); }
+  }
+
   function clearStage() {
     if (timer) { clearTimeout(timer); timer = null; }
+    imgReady = false;
     stopLiveV();
     if (current) {
       if (current.tagName === "VIDEO") { try { current.pause(); current.removeAttribute("src"); current.load(); } catch (e) { /* gone */ } }
@@ -583,7 +590,11 @@ function viewerScreen(browse, index, autoplay) {
       }
     } else {
       var im = el("img", "full");
-      im.onload = function () { spinner.setAttribute("hidden", ""); zoomStart(im); schedule(); };
+      im.onload = function () {
+        spinner.setAttribute("hidden", "");
+        imgReady = true;
+        if (!liveV) { zoomStart(im); schedule(); }   // with a motion playing: when it has played (liveDone)
+      };
       im.onerror = function () {
         spinner.setAttribute("hidden", "");
         UI.toast(t("The photo could not be loaded."));
