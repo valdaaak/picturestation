@@ -761,6 +761,25 @@ adm("album_set", {"path": "2001/Rodina", "mode": "private"})
 from picturestation import synosync  # noqa: E402
 check("preberanie bez nastavenia vypnute", synosync.enabled() is False)
 
+# tagy zo Synology Photos (source='synology')
+def _syno_rows():
+    return sorted((r["path"], r["name"]) for r in sdb.execute(
+        "SELECT i.path, t.name FROM item_tags i JOIN tags t ON t.id=i.tag_id WHERE i.source='synology'"))
+r = synosync.apply_tags([("Synotag", ["/2001/Maxim/01.jpg", "../mimo.jpg"]), ("Synojeden", ["2001/Rodina/a.jpg"]),
+                         ("synotag", ["2001/Rodina/a.jpg"])])
+check("tagy zo Synology: pocty", r == (2, 2, 1), r)
+check("tagy zo Synology: priradenia", _syno_rows() == [("2001/Maxim/01.jpg", "Synotag"), ("2001/Rodina/a.jpg", "Synojeden")],
+      _syno_rows())
+tid = sdb.execute("SELECT id FROM tags WHERE name='Synotag'").fetchone()["id"]
+adm("tag_remove", {"path": "2001/Maxim/01.jpg", "tag": f"tag_{tid}"})
+synosync.apply_tags([("Synotag", ["2001/Maxim/01.jpg"]), ("Synojeden", ["2001/Rodina/a.jpg"])])
+check("rucne odobraty tag zo Synology sa nevrati", _syno_rows() == [("2001/Rodina/a.jpg", "Synojeden")], _syno_rows())
+synosync.apply_tags([])
+check("tag zmizly v Synology zmizne aj tu", _syno_rows() == []
+      and not sdb.execute("SELECT 1 FROM tags WHERE name='Synojeden'").fetchone(), _syno_rows())
+sdb.execute("DELETE FROM tag_suppress WHERE tag_id=?", (tid,))
+sdb.execute("DELETE FROM tags WHERE id=?", (tid,))
+
 # --- titulna fotka nadradeneho albumu z podalbumu ---
 check("titulna pre nadradeny album", adm("album_set", {"path": "2001", "cover": "2001/Rodina/a.jpg"}).status_code == 200)
 r = call("album.php", api="SYNO.PhotoStation.Album", method="list", version="1", type="album")

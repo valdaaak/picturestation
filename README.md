@@ -10,7 +10,7 @@ Synology removed Photo Station in DSM 7. Its replacement, Synology Photos, works
 - **the DS photo app** (Android), which connects to it as if it were Photo Station 6;
 - **an app for LG TVs** (webOS 3.0 and later) and **an app for Android and Android TV**: albums, the newest photos, viewer, slideshows and videos; a device is paired with a code, without a password;
 - **Photo Station style rights**: users, groups, guest access, password-protected albums, excluded albums, share links with expiry;
-- **people from Synology Photos**: face recognition stays in Synology Photos, Picturestation shows the named people;
+- **people and tags from Synology Photos**: face recognition and tagging stay in Synology Photos, Picturestation shows the named people and the tags;
 - **iPhone photos**: HEIC with dates and places (with exiftool), and Live Photos as one item whose motion plays in the viewer;
 - **thumbnails** that DSM already made in `@eaDir`, and its own cache for the rest.
 
@@ -208,6 +208,8 @@ Synology Photos recognises faces and lets you name people. Picturestation can sh
    ```
 
 People are synchronised at every index run, every 30 minutes with the default settings. Only people with a name appear. Each user sees only the people on photos they are allowed to see. Guests see names only when the restriction **Guests without signing in see names of people** is turned on.
+
+The same run takes the **tags** of the shared space (Synology Photos' general tags) into the gallery's tags: a tag added in Synology Photos appears on the photo, a tag removed there disappears. Keywords written in the files and tags added in the gallery stay as they are. A Synology tag that an administrator removes from a photo in the gallery is not added again. Only the main gallery is synchronised: the service account sees the shared space, not the users' personal spaces.
 
 ## Personal galleries
 

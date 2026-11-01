@@ -4,8 +4,10 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
-- LG TV app 0.1.4: renews LG's Developer Mode session (1000 hours) at its start, at most once a day, in the background, so the TV does not remove the app.
+## 0.3.0 – 2026-11-01
 
+- Tags from Synology Photos: the run that takes people from the shared space also takes its general tags (source `synology` in `item_tags`). A tag added in Synology Photos appears on the photo, a tag removed there disappears; a Synology tag removed in the gallery is not added again. Keywords from the files and tags added in the gallery are not touched.
+- LG TV app 0.1.4: renews LG's Developer Mode session (1000 hours) at its start, at most once a day, in the background, so the TV does not remove the app.
 - Android app 0.2.4: only the video on screen has a player; the neighbouring pages of a video show its thumbnail and download nothing, and leaving a video releases its player at once (several 1080p HEVC videos at the same time made playback stutter on a Chromecast HD).
 
 ## 0.2.0 – 2026-11-01

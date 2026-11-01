@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS tags (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     name      TEXT NOT NULL UNIQUE COLLATE NOCASE
 );
--- source: manual = pridal admin v galerii, file = klucove slovo zo suboru (IPTC/XMP)
+-- source: manual = pridal admin v galerii, file = klucove slovo zo suboru (IPTC/XMP), synology = tag zo Synology Photos
 CREATE TABLE IF NOT EXISTS item_tags (
     path      TEXT NOT NULL,
     tag_id    INTEGER NOT NULL,

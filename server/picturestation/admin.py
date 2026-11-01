@@ -494,8 +494,8 @@ def tag_remove(_me, b):
         raise AdminError("Invalid tag.")
     db = store.db()
     row = db.execute("SELECT source FROM item_tags WHERE path=? AND tag_id=?", (rel, t[1])).fetchone()
-    if row and row["source"] == "file":
-        # klucove slovo je v subore: zapamatat, aby ho indexer znova nepridal
+    if row and row["source"] in ("file", "synology"):
+        # klucove slovo v subore alebo tag v Synology Photos: zapamatat, aby ho indexer ani preberanie znova nepridali
         db.execute("INSERT OR IGNORE INTO tag_suppress VALUES (?,?)", (rel, t[1]))
     db.execute("DELETE FROM item_tags WHERE path=? AND tag_id=?", (rel, t[1]))
     # nepouzity tag zmazat
