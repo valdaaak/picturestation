@@ -50,8 +50,14 @@ object Updater {
     fun canInstall(ctx: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ctx.packageManager.canRequestPackageInstalls()
 
-    /** True when the update can go through without the user: Android 12+ and installs from this app allowed. */
-    fun canInstallSilently(ctx: Context): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && canInstall(ctx)
+    /** True when the update can go through without the user: Android 12+, installs from this app allowed, and the
+     *  server reached over https (Android accepts only an APK signed with this app's key anyway; over plain http
+     *  the user still gets the system's confirmation). */
+    fun canInstallSilently(ctx: Context, api: Api): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && canInstall(ctx) && api.server.startsWith("https://")
+
+    /** An APK larger than this is not an update of this app. */
+    private const val MAX_APK_BYTES = 100L * 1024 * 1024
 
     fun openInstallPermission(ctx: Context) {
         ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
@@ -65,7 +71,18 @@ object Updater {
             if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
             val dir = File(ctx.cacheDir, "update").apply { mkdirs() }
             val file = File(dir, "update.apk")
-            resp.body!!.byteStream().use { input -> file.outputStream().use { out -> input.copyTo(out) } }
+            var total = 0L
+            resp.body!!.byteStream().use { input ->
+                file.outputStream().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buf); if (n < 0) break
+                        total += n
+                        if (total > MAX_APK_BYTES) { file.delete(); throw IllegalStateException("APK too large") }
+                        out.write(buf, 0, n)
+                    }
+                }
+            }
             return file
         }
     }

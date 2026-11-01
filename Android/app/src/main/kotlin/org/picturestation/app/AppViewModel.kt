@@ -270,7 +270,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         val info = withContext(Dispatchers.IO) { Updater.check(api) }
         update = info?.takeIf { it.versionCode > BuildConfig.VERSION_CODE } ?: return false
-        if (!Updater.canInstallSilently(app)) return false
+        if (!Updater.canInstallSilently(app, api)) return false
         startNote = app.getString(R.string.update_installing, info!!.versionName)
         updateBusy = true
         val replaced = runInstall(app)
