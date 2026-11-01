@@ -4,6 +4,8 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Android app 0.2.4: only the video on screen has a player; the neighbouring pages of a video show its thumbnail and download nothing, and leaving a video releases its player at once (several 1080p HEVC videos at the same time made playback stutter on a Chromecast HD).
+
 ## 0.2.0 – 2026-11-01
 
 - Android app 0.1.4: one app holds several paired galleries (for example the main gallery and a private `/~name` gallery of the same server), each paired with its own code; the other galleries appear as tiles on the start screen, Settings lists them with Add gallery and Remove. A slideshow on a TV slowly zooms every photo from fitting the screen to filling it (a portrait photo ends edge to edge); on a TV remote OK shows the caption and starts the slideshow, OK again pauses it. Earlier installs are converted without a new code.

@@ -158,9 +158,14 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     ) {
         HorizontalPager(state = pager, beyondViewportPageCount = 1, key = { media[it].id }, modifier = Modifier.fillMaxSize()) { page ->
             val item = media[page]
-            if (item.type == "video") VideoPage(
-                vm = vm, item = item, active = page == pager.currentPage, paused = videoPaused,
+            // a player only for the video on screen: a neighbour (the pager keeps one page each side) shows its
+            // thumbnail and downloads nothing; leaving a video releases its player and its decoder at once.
+            // Several 1080p HEVC streams at the same time made playback stutter on a Chromecast HD.
+            if (item.type == "video" && page == pager.currentPage) VideoPage(
+                vm = vm, item = item, active = true, paused = videoPaused,
                 onEnded = { if (playing) go(1) }, onTap = { overlay = !overlay },
+            ) else if (item.type == "video") ZoomableImage(
+                url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay }, active = false,
             ) else ZoomableImage(
                 url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay },
                 active = page == pager.currentPage, kenBurns = vm.isTv && playing, durationMs = vm.store.interval * 1000,
