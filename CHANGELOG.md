@@ -4,6 +4,8 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Live Photos in the TV apps (Android 0.2.5, LG TV 0.1.5): a tile shows LIVE, and when the focus rests on it the motion plays once, muted, in the tile; OK opens the photo full screen without playing it again; moving to a Live Photo in the viewer (arrows, swipe, slideshow) plays its motion once over the photo. On a phone the viewer has a LIVE button that plays the motion with sound. Only the motion on screen is downloaded.
+
 ## 0.3.0 – 2026-11-01
 
 - Tags from Synology Photos: the run that takes people from the shared space also takes its general tags (source `synology` in `item_tags`). A tag added in Synology Photos appears on the photo, a tag removed there disappears; a Synology tag removed in the gallery is not added again. Keywords from the files and tags added in the gallery are not touched.

@@ -21,6 +21,7 @@ data class Item(
     val people: List<String>,
     val path: String,            // relative path in the library ("" for the root); albums and files alike
     val tags: List<Pair<String, String>>,   // (id, name) of the description tags, when asked for (details)
+    val live: String? = null,    // Live Photo: id of its motion video (the server hides that video from lists)
 ) {
     val isMedia get() = type == "photo" || type == "video"
 }
@@ -59,6 +60,7 @@ fun parseItem(o: JSONObject): Item {
         people = people,
         path = path,
         tags = tags,
+        live = info.optString("live", "").ifEmpty { null },
     )
 }
 

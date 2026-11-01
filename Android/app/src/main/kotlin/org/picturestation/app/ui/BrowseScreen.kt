@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import coil.compose.AsyncImage
 import org.picturestation.app.AppViewModel
 import org.picturestation.app.BrowseState
@@ -193,11 +194,20 @@ fun BrowseScreen(
                     val it = st.items[i]
                     Tile(tv = vm.isTv, onClick = {
                         if (it.type == "album") onOpenAlbum(it) else onOpenMedia(st.mediaIndexOf(it), false)
-                    }) {
+                    }) { focused ->
                         if (it.hasThumb) AsyncImage(
                             model = vm.api.thumbUrl(it, "small"), contentDescription = it.title,
                             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                         )
+                        // Live Photo: on a TV the motion plays once, muted, when the focus rests on the tile;
+                        // the short wait keeps a quick run over the grid from downloading many clips
+                        val live = it.live
+                        if (it.type == "photo" && live != null) {
+                            var play by remember(it.id) { mutableStateOf(false) }
+                            LaunchedEffect(focused) { play = false; if (focused && vm.isTv) { delay(300); play = true } }
+                            if (play) LiveMotion(vm, live, muted = true, crop = true) { play = false }
+                            LiveBadge(Modifier.align(Alignment.TopEnd), if (vm.isTv) 14.sp else 10.sp)
+                        }
                         if (it.type == "album") Text(
                             it.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper,
                             fontSize = if (vm.isTv) 17.sp else 12.sp, lineHeight = if (vm.isTv) 20.sp else 14.sp,
@@ -223,15 +233,14 @@ fun BrowseScreen(
 
 /** A square tile; on a TV it shows a focus frame for the D-pad. */
 @Composable
-private fun Tile(tv: Boolean, onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit) {
+private fun Tile(tv: Boolean, onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.BoxScope.(focused: Boolean) -> Unit) {
     var focused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(NavyLight)
             .onFocusChanged { focused = it.isFocused }
             .then(if (tv && focused) Modifier.border(4.dp, Focus, RoundedCornerShape(10.dp)) else Modifier)
             .clickable(onClick = onClick),
-        content = content,
-    )
+    ) { content(focused) }
 }
 
 fun duration(ms: Int): String {

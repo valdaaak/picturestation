@@ -128,10 +128,13 @@ class Api(private val store: Store) {
 
     /** Video URL. `variant` "web" = the original or the NAS conversion (players honour the rotation flag);
      *  "tv" = additionally an upright copy for players that do not. */
-    fun videoUrl(item: Item, variant: String = "web"): String {
+    fun videoUrl(item: Item, variant: String = "web"): String = videoUrl(item.id, variant)
+
+    /** Video URL by id, for example the motion of a Live Photo (`Item.live`). */
+    fun videoUrl(id: String, variant: String = "web"): String {
         val u = Uri.parse("$server/photo/webapi/download.php").buildUpon()
             .appendQueryParameter("api", "SYNO.PhotoStation.Download").appendQueryParameter("method", "getvideo")
-            .appendQueryParameter("version", "1").appendQueryParameter("id", item.id).appendQueryParameter("variant", variant)
+            .appendQueryParameter("version", "1").appendQueryParameter("id", id).appendQueryParameter("variant", variant)
         return withSid(u)
     }
 

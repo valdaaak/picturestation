@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -106,6 +107,8 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     var details by remember { mutableStateOf<Item?>(null) }
     var adminAction by remember { mutableStateOf<String?>(null) }   // share | cover | tags
     var adminMenu by remember { mutableStateOf(false) }
+    var liveId by remember { mutableStateOf<String?>(null) }   // item whose Live Photo motion is playing
+    var firstPage by remember { mutableStateOf(true) }
     val sessionEnded = stringResource(R.string.session_ended)
     val passwordNote = stringResource(R.string.album_password)
     val failed = stringResource(R.string.load_failed)
@@ -124,6 +127,10 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     val current = media.getOrNull(pager.currentPage)
     LaunchedEffect(current?.id) {
         details = null
+        // Live Photo: the motion plays once when the viewer moves to the photo (arrows, swipe, slideshow);
+        // the photo opened from the grid only goes full screen (on a TV its motion played in the grid already)
+        liveId = if (!firstPage && current?.type == "photo" && current.live != null) current.id else null
+        firstPage = false
         current ?: return@LaunchedEffect
         st.firstVisible = st.items.indexOf(current).coerceAtLeast(0)
         if (pager.currentPage >= media.size - 8) vm.load(st, sessionEnded, passwordNote, failed, network)
@@ -166,10 +173,15 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 onEnded = { if (playing) go(1) }, onTap = { overlay = !overlay },
             ) else if (item.type == "video") ZoomableImage(
                 url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay }, active = false,
-            ) else ZoomableImage(
-                url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay },
-                active = page == pager.currentPage, kenBurns = vm.isTv && playing, durationMs = vm.store.interval * 1000,
-            )
+            ) else Box(modifier = Modifier.fillMaxSize()) {
+                ZoomableImage(
+                    url = vm.api.thumbUrl(item, "large"), onTap = { overlay = !overlay },
+                    active = page == pager.currentPage, kenBurns = vm.isTv && playing, durationMs = vm.store.interval * 1000,
+                )
+                val live = item.live
+                if (live != null && liveId == item.id && page == pager.currentPage)
+                    LiveMotion(vm, live, muted = vm.isTv, crop = false) { liveId = null }
+            }
         }
 
         if (overlay) {
@@ -181,6 +193,10 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = Paper) }
                 Text("${pager.currentPage + 1} / ${media.size}${if (st.items.size < st.total) "+" else ""}", color = Paper,
                     modifier = Modifier.weight(1f))
+                // Live Photo: a tap on LIVE plays the motion (again)
+                if (current?.type == "photo" && current.live != null) TextButton(onClick = { liveId = null; scope.launch { delay(50); liveId = current.id } }) {
+                    Text("LIVE", color = if (liveId == current.id) Focus else Paper)
+                }
                 IconButton(onClick = { playing = !playing }) {
                     Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         stringResource(if (playing) R.string.pause else R.string.play), tint = if (playing) Focus else Paper)

@@ -3,7 +3,7 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.4";
+var APP_VERSION = "0.1.5";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 // pendingBase: the gallery address the setup and pairing screens work on
@@ -298,6 +298,7 @@ function browseScreen(where) {
       else tile.appendChild(el("div", "ph"));
       if (kind === "album") tile.appendChild(el("div", "cap", itemTitle(item)));
       if (kind === "video") tile.appendChild(el("div", "badge", duration(item)));
+      if (kind === "photo" && item.info && item.info.live) tile.appendChild(el("div", "badge", "LIVE"));
     }
     if (kind === "photo" || kind === "video") { ent.media = media.length; mediaIndex.push(i); media.push(item); }
     tile.addEventListener("mouseover", function () { setFocusIdx(i); }, false);
@@ -350,11 +351,41 @@ function browseScreen(where) {
     }
   }
 
+  // Live Photo: when the focus rests on its tile, the motion plays once, muted. The short wait keeps a quick run
+  // over the grid from downloading many clips; only one plays at a time.
+  var liveTimer = null, liveVid = null, paused = false;   // paused: another screen (the viewer) is on top
+  function stopLive() {
+    if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
+    if (liveVid) {
+      try { liveVid.pause(); liveVid.removeAttribute("src"); liveVid.load(); } catch (e) { /* gone */ }
+      if (liveVid.parentNode) liveVid.parentNode.removeChild(liveVid);
+      liveVid = null;
+    }
+  }
+  function startLive(e) {
+    stopLive();
+    if (paused || !e || e.kind !== "photo" || !e.item.info || !e.item.info.live) return;
+    liveTimer = setTimeout(function () {
+      liveTimer = null;
+      var v = el("video", "live");
+      v.muted = true;
+      v.setAttribute("muted", "");
+      v.setAttribute("autoplay", "");
+      v.addEventListener("playing", function () { v.className = "live on"; }, false);
+      v.addEventListener("ended", stopLive, false);
+      v.addEventListener("error", stopLive, false);
+      v.src = API.video({ id: e.item.info.live });
+      e.tile.appendChild(v);
+      liveVid = v;
+    }, 300);
+  }
+
   function setFocusIdx(i) {
     if (i < 0 || i >= entries.length || i === focus) return;
     if (focus >= 0) setFocus(entries[focus].tile, false);
     focus = i;
     setFocus(entries[i].tile, true);
+    startLive(entries[i]);
     var row = Math.floor(i / COLS);
     if (row < scrollRow) scrollRow = row;
     else if (row > scrollRow + ROWS_VISIBLE - 1) scrollRow = row - ROWS_VISIBLE + 1;
@@ -389,6 +420,7 @@ function browseScreen(where) {
   function activate() {
     var e = entries[focus];
     if (!e) return;
+    stopLive();
     if (e.kind === "latest") UI.push(browseScreen({ latest: true }));
     else if (e.kind === "gallery") switchGallery(e.item.index);
     else if (e.kind === "settings") UI.push(settingsScreen());
@@ -400,7 +432,9 @@ function browseScreen(where) {
     node: node,
     media: media,
     enter: load,
-    leave: function () { alive = false; },
+    leave: function () { alive = false; stopLive(); },
+    pause: function () { paused = true; stopLive(); },
+    resume: function () { paused = false; },
     hasMore: function () { return loaded < total; },
     more: function (cb) { if (loaded < total && alive) { pendingMore = cb; load(); } else cb(); },
     focusMedia: function (m) { if (mediaIndex[m] !== undefined) setFocusIdx(mediaIndex[m]); },
@@ -470,9 +504,33 @@ function viewerScreen(browse, index, autoplay) {
 
   var list = browse.media;
   var cur = -1, playing = false, timer = null, hideTimer = null, alive = true, current = null, preloads = [];
+  var firstShow = true, liveV = null;
+
+  // Live Photo: the motion plays once over the photo when the viewer moves to it (arrows, slideshow), muted;
+  // the photo opened from the grid only goes full screen (its motion played in the grid already)
+  function stopLiveV() {
+    if (!liveV) return;
+    try { liveV.pause(); liveV.removeAttribute("src"); liveV.load(); } catch (e) { /* gone */ }
+    if (liveV.parentNode) liveV.parentNode.removeChild(liveV);
+    liveV = null;
+  }
+  function playLiveV(item) {
+    stopLiveV();
+    var v = el("video", "full live");
+    v.muted = true;
+    v.setAttribute("muted", "");
+    v.setAttribute("autoplay", "");
+    v.addEventListener("playing", function () { v.className = "full live on"; }, false);
+    v.addEventListener("ended", stopLiveV, false);
+    v.addEventListener("error", stopLiveV, false);
+    v.src = API.video({ id: item.info.live });
+    stage.appendChild(v);
+    liveV = v;
+  }
 
   function clearStage() {
     if (timer) { clearTimeout(timer); timer = null; }
+    stopLiveV();
     if (current) {
       if (current.tagName === "VIDEO") { try { current.pause(); current.removeAttribute("src"); current.load(); } catch (e) { /* gone */ } }
       if (current.parentNode) current.parentNode.removeChild(current);
@@ -534,9 +592,11 @@ function viewerScreen(browse, index, autoplay) {
       im.src = API.thumb(item, "large");
       stage.appendChild(im);
       current = im;
+      if (!firstShow && item.info && item.info.live) playLiveV(item);
       preload(i + 1);
       preload(i - 1);
     }
+    firstShow = false;
     counter.textContent = (i + 1) + " / " + list.length + (browse.hasMore() ? "+" : "");
     name.textContent = itemTitle(item);
     meta.textContent = fmtDate(item.info && item.info.takendate);

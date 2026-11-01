@@ -36,6 +36,10 @@ html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hid
 .tile.special .glyph.gear { width: 80px; height: 80px; border-radius: 50%; border-style: dotted; border-width: 10px; }
 .tile.special.gallery .glyph { border-style: double; }   /* another paired gallery */
 .tile .ph { width: 100%; height: 100%; background: #2a313a; }
+/* Live Photo: the motion over the thumbnail (grid) or the photo (viewer); hidden until it really plays */
+.tile video.live { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; visibility: hidden; }
+.viewer video.live { background: transparent; visibility: hidden; }
+video.live.on { visibility: visible; }
 .message { position: absolute; left: 50px; top: 160px; color: #9aa3ad; }
 
 /* viewer */
