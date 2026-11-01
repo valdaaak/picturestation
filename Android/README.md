@@ -61,10 +61,12 @@ connection unnoticed. Inside your own network http is fine.
 
 ## Updates
 
-The app checks `https://your-gallery/app/version.json` after the start and under **Settings, Check for
-updates**. A newer `versionCode` shows a bar with an Update button: the APK next to it is downloaded and
-handed to Android's installer (the first time Android asks to allow installs from Picturestation). To
-publish a version: raise `versionCode` and `versionName` in `app/build.gradle.kts`, build the release,
+The app checks `https://your-gallery/app/version.json` at the start and under **Settings, Check for
+updates**. On Android 12 and later, once installs from Picturestation are allowed (Android asks the first
+time, or `adb shell appops set org.picturestation.app REQUEST_INSTALL_PACKAGES allow` on a TV), a newer
+version installs itself at the start: the start screen says "Installing version…", Android replaces the app
+and stops it, and the user opens it again. Elsewhere a newer `versionCode` shows a bar with an Update button:
+the APK is downloaded and Android's confirmation appears. To publish a version: raise `versionCode` and `versionName` in `app/build.gradle.kts`, build the release,
 run `python3 publish.py some/folder` and put that folder's `Picturestation.apk` and `version.json` into
 `DATA/app/` on the server.
 

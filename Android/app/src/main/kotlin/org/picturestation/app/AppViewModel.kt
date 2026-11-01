@@ -180,6 +180,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     val u = api.checkAuth()
                     if (u.isEmpty()) { sessionLost(sessionEnded); return@launch }
                     store.upsert(g.copy(user = u, title = t)); sync()
+                    if (autoUpdate()) return@launch   // Android replaces the app now; the user opens the new version
                     reset(Screen.Browse(BrowseState(Where())))
                     return@launch
                 } catch (e: Api.ApiException) {
@@ -259,17 +260,56 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (byUser) updateNote = when { info == null -> noneNote; update == null -> latestNote; else -> null }
         }
     }
-    fun installUpdate(ctx: android.content.Context, permissionNote: String, failedNote: String) {
-        val info = update ?: return
-        if (!Updater.canInstall(ctx)) { message = permissionNote; Updater.openInstallPermission(ctx); return }
+
+    /** At the start: a newer version on the server goes in by itself where Android allows it (12 and later,
+     *  installs from this app allowed). True when the app is being replaced; otherwise the start goes on and
+     *  a newer version, if any, waits in the banner. */
+    private suspend fun autoUpdate(): Boolean {
+        if (updateChecked) return false
+        updateChecked = true
+        val app = getApplication<Application>()
+        val info = withContext(Dispatchers.IO) { Updater.check(api) }
+        update = info?.takeIf { it.versionCode > BuildConfig.VERSION_CODE } ?: return false
+        if (!Updater.canInstallSilently(app)) return false
+        startNote = app.getString(R.string.update_installing, info!!.versionName)
         updateBusy = true
-        viewModelScope.launch {
-            try {
-                val file = withContext(Dispatchers.IO) { Updater.download(ctx, api, info) }
-                Updater.install(ctx, file)
-            } catch (e: Exception) {
-                Log.w(TAG, "update failed: $e"); message = failedNote
+        val replaced = runInstall(app)
+        updateBusy = false
+        if (replaced) startNote = app.getString(R.string.update_installed)
+        return replaced
+    }
+
+    /** Downloads and installs [update]; true when Android reported success (the app is about to be replaced). */
+    private suspend fun runInstall(ctx: android.content.Context): Boolean {
+        val info = update ?: return false
+        val app = getApplication<Application>()
+        val done = kotlinx.coroutines.CompletableDeferred<Pair<Boolean, String?>>()
+        Updater.onResult = { ok, msg -> done.complete(ok to msg) }
+        return try {
+            val file = withContext(Dispatchers.IO) { Updater.download(ctx, api, info) }
+            withContext(Dispatchers.IO) { Updater.install(app, file) }
+            val (ok, msg) = kotlinx.coroutines.withTimeout(60_000) { done.await() }
+            when {
+                ok -> true
+                msg != null -> { Log.w(TAG, "update failed: $msg"); message = app.getString(R.string.update_failed); false }
+                else -> false   // the system asks the user in its own dialog
             }
+        } catch (e: Exception) {
+            Log.w(TAG, "update failed: $e"); message = app.getString(R.string.update_failed); false
+        }
+    }
+
+    /** The Update button of the banner and of Settings. */
+    fun installUpdate(ctx: android.content.Context) {
+        val info = update ?: return
+        val app = getApplication<Application>()
+        if (!Updater.canInstall(ctx)) { message = app.getString(R.string.update_permission); Updater.openInstallPermission(ctx); return }
+        if (updateBusy) return
+        updateBusy = true
+        updateNote = app.getString(R.string.update_installing, info.versionName)
+        message = updateNote
+        viewModelScope.launch {
+            updateNote = if (runInstall(ctx)) app.getString(R.string.update_installed) else null
             updateBusy = false
         }
     }

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package org.picturestation.app.data
 
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.core.content.FileProvider
+import android.util.Log
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
@@ -14,11 +17,21 @@ import java.io.File
 /**
  * Updates from the gallery's own server: `/app/version.json` says which version is there
  * (`{"versionCode": 3, "versionName": "0.1.2", "apk": "Picturestation.apk"}`), the APK lies next to it.
- * A newer version is downloaded to the cache and handed to the system installer; the first time Android asks
- * to allow installs from this app.
+ *
+ * A newer version is downloaded to the cache and installed through a PackageInstaller session. On Android 12
+ * and later an app may update itself without a confirmation (UPDATE_PACKAGES_WITHOUT_USER_ACTION, and the user
+ * once allowed installs from this app): the app then replaces itself at the start; Android stops it and does not
+ * let it start again from the background, so the user opens the new version. Where a confirmation is still
+ * required the system's dialog appears; the first time Android asks to allow installs from this app.
  */
 object Updater {
+    private const val TAG = "Picturestation"
+    const val ACTION_STATUS = "org.picturestation.app.UPDATE_STATUS"
+
     data class Info(val versionCode: Int, val versionName: String, val apk: String)
+
+    /** Told what the installer answered: success, a failure message, or null when the user has to confirm. */
+    @Volatile var onResult: ((success: Boolean, message: String?) -> Unit)? = null
 
     /** The version on the server, null when there is none or it cannot be read. */
     fun check(api: Api): Info? {
@@ -37,6 +50,9 @@ object Updater {
     fun canInstall(ctx: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ctx.packageManager.canRequestPackageInstalls()
 
+    /** True when the update can go through without the user: Android 12+ and installs from this app allowed. */
+    fun canInstallSilently(ctx: Context): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && canInstall(ctx)
+
     fun openInstallPermission(ctx: Context) {
         ctx.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -54,11 +70,43 @@ object Updater {
         }
     }
 
+    /** Installs the downloaded APK over this app; the answer comes to [onResult] through [UpdateReceiver]. */
     fun install(ctx: Context, file: File) {
-        val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", file)
-        ctx.startActivity(Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
+        val installer = ctx.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setAppPackageName(ctx.packageName)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        val id = installer.createSession(params)
+        installer.openSession(id).use { session ->
+            session.openWrite("Picturestation.apk", 0, file.length()).use { out ->
+                file.inputStream().use { it.copyTo(out) }
+                session.fsync(out)
+            }
+            val intent = Intent(ctx, UpdateReceiver::class.java).setAction(ACTION_STATUS)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
+            session.commit(PendingIntent.getBroadcast(ctx, id, intent, flags).intentSender)
+        }
+        Log.i(TAG, "update session $id committed")
+    }
+}
+
+/** The installer's answer to a session: a confirmation to show, success (the app is about to be replaced) or a failure. */
+class UpdateReceiver : BroadcastReceiver() {
+    override fun onReceive(ctx: Context, intent: Intent) {
+        val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+        Log.i("Picturestation", "update status $status $message")
+        when (status) {
+            PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                @Suppress("DEPRECATION")
+                val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
+                ctx.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                Updater.onResult?.invoke(false, null)
+            }
+            PackageInstaller.STATUS_SUCCESS -> Updater.onResult?.invoke(true, null)
+            else -> Updater.onResult?.invoke(false, message ?: "status $status")
+        }
     }
 }

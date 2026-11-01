@@ -78,8 +78,6 @@ fun BrowseScreen(
 
     val latestNote = stringResource(R.string.update_latest)
     val noneNote = stringResource(R.string.update_none)
-    val permissionNote = stringResource(R.string.update_permission)
-    val updateFailed = stringResource(R.string.update_failed)
     val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
         if (st.items.isEmpty()) vm.load(st, sessionEnded, passwordNote, failed, network)
@@ -128,9 +126,9 @@ fun BrowseScreen(
             modifier = Modifier.fillMaxWidth().background(Color(0xFF263040)).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(R.string.update_available, upd.versionName), color = Paper, modifier = Modifier.weight(1f),
+            Text(vm.updateNote ?: stringResource(R.string.update_available, upd.versionName), color = Paper, modifier = Modifier.weight(1f),
                 fontSize = if (vm.isTv) 22.sp else 14.sp)
-            androidx.compose.material3.Button(onClick = { vm.installUpdate(ctx, permissionNote, updateFailed) }, enabled = !vm.updateBusy) {
+            androidx.compose.material3.Button(onClick = { vm.installUpdate(ctx) }, enabled = !vm.updateBusy) {
                 Text(stringResource(if (vm.updateBusy) R.string.update_downloading else R.string.update_now))
             }
         }

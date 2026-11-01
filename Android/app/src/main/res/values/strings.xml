@@ -49,4 +49,6 @@
     <string name="update_none">The server offers no update.</string>
     <string name="update_permission">Allow Picturestation to install updates, then tap Update again.</string>
     <string name="update_failed">The update could not be downloaded.</string>
+    <string name="update_installing">Installing version %1$s…</string>
+    <string name="update_installed">Installed, the app restarts.</string>
 </resources>

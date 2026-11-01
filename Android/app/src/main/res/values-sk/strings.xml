@@ -48,4 +48,6 @@
     <string name="update_none">Server neponúka aktualizáciu.</string>
     <string name="update_permission">Povoľ Picturestation inštalovať aktualizácie a potom ťukni na Aktualizovať znova.</string>
     <string name="update_failed">Aktualizáciu sa nepodarilo stiahnuť.</string>
+    <string name="update_installing">Inštalujem verziu %1$s…</string>
+    <string name="update_installed">Nainštalované, appka sa reštartuje.</string>
 </resources>
