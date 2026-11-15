@@ -117,10 +117,45 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     val noDate = stringResource(R.string.no_date)
     val focus = remember { FocusRequester() }
 
+    val bestMsg = mapOf(
+        "sent" to stringResource(R.string.best_sent), "back" to stringResource(R.string.best_taken_back),
+        "added" to stringResource(R.string.best_added), "removed" to stringResource(R.string.best_removed),
+        "admin" to stringResource(R.string.best_admin_only), "many" to stringResource(R.string.best_too_many),
+        "failed" to stringResource(R.string.best_failed), "syno" to stringResource(R.string.best_synology_failed),
+    )
+    var bestBusy by remember { mutableStateOf(false) }
+
     fun go(delta: Int) {
         if (media.isEmpty()) return
         val n = (pager.currentPage + delta + media.size) % media.size
         scope.launch { pager.animateScrollToPage(n) }
+    }
+
+    // the heart: an administrator tags the photo as Best Foto at once, others suggest it for approval
+    fun toggleBest(item: Item) {
+        overlay = true
+        if (bestBusy) return
+        fun say(key: String) = Toast.makeText(ctx, bestMsg[key], Toast.LENGTH_SHORT).show()
+        if (item.best == 1 && !vm.isAdmin) { say("admin"); return }
+        bestBusy = true
+        scope.launch {
+            try {
+                val d = vm.api.setBest(item.id, item.best == 0)
+                val now = d.optInt("best")
+                val i = st.items.indexOfFirst { it.id == item.id }
+                if (i >= 0) st.items[i] = st.items[i].copy(best = now)
+                vm.forgetDetails(item.id)
+                say(when {
+                    d.optString("synology") in listOf("failed", "missing") -> "syno"
+                    now == 2 -> "sent"
+                    now == 1 -> "added"
+                    item.best == 2 -> "back"
+                    else -> "removed"
+                })
+            } catch (e: org.picturestation.app.data.Api.ApiException) {
+                say(when (e.code) { 496 -> "admin"; 497 -> "many"; else -> "failed" })
+            } finally { bestBusy = false }
+        }
     }
 
     // the item in view: details, position for the list behind, more items when near the end
@@ -162,6 +197,8 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                     Key.DirectionUp, Key.DirectionDown -> { overlay = !overlay; true }
                     Key.MediaPlay, Key.MediaPlayPause, Key.ProgramRed -> { playing = !playing; overlay = true; true }
                     Key.MediaPause, Key.MediaStop, Key.ProgramGreen -> { playing = false; videoPaused = true; overlay = true; true }
+                    // the top bar is out of reach of the arrows on a TV: the yellow button is the heart
+                    Key.ProgramYellow -> { media.getOrNull(pager.currentPage)?.let { toggleBest(it) }; true }
                     else -> false
                 }
             },
@@ -202,6 +239,11 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 if (current?.type == "photo" && current.live != null) TextButton(onClick = { liveId = null; scope.launch { delay(50); liveId = current.id } }) {
                     Text("LIVE", color = if (liveId == current.id) Focus else Paper)
                 }
+                if (current != null) IconButton(onClick = { toggleBest(current) }) {
+                    HeartIcon(current.best, stringResource(when (current.best) {
+                        1 -> R.string.best_on; 2 -> R.string.best_waiting; else -> if (vm.isAdmin) R.string.best_add else R.string.best_suggest
+                    }))
+                }
                 IconButton(onClick = { playing = !playing }) {
                     Icon(if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                         stringResource(if (playing) R.string.pause else R.string.play), tint = if (playing) Focus else Paper)
@@ -237,7 +279,12 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
             when (adminAction) {
                 "share" -> ShareDialog(vm, item.path, item.type, onDone = { adminAction = null })
                 "cover" -> CoverDialog(vm, item.path, onDone = { adminAction = null })
-                "tags" -> TagsDialog(vm, item, onDone = { adminAction = null; details = null; scope.launch { vm.forgetDetails(item.id); details = vm.details(item) } })
+                "tags" -> TagsDialog(vm, item, onDone = { adminAction = null; details = null; scope.launch {
+                    vm.forgetDetails(item.id); details = vm.details(item)
+                    // the tags may have changed Best Foto: the heart follows
+                    val d = details; val i = st.items.indexOfFirst { it.id == item.id }
+                    if (d != null && i >= 0 && st.items[i].best != d.best) st.items[i] = st.items[i].copy(best = d.best)
+                } })
             }
         }
     }

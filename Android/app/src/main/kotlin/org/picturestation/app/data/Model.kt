@@ -26,6 +26,7 @@ data class Item(
     val cc: String? = null,      // a place: its country code and country name
     val country: String? = null,
     val cover: Item? = null,     // a tile of the Collections (type "coll"): the entry whose cover it shows
+    val best: Int = 0,           // the Best Foto heart: 0 none, 1 has the tag, 2 my suggestion waits for the administrator
 ) {
     val isMedia get() = type == "photo" || type == "video"
     /** An entry that opens another list: an album, a tag, a person, a place, a smart album, a Collections tile. */
@@ -70,6 +71,7 @@ fun parseItem(o: JSONObject): Item {
         count = info.optInt("count", 0),
         cc = info.optString("cc", "").ifEmpty { null },
         country = info.optString("country", "").ifEmpty { null },
+        best = info.optInt("best", 0),
     )
 }
 

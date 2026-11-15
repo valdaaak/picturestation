@@ -124,6 +124,11 @@ class Api(private val store: Store) {
         parseItems(call("smart_album.php", "SYNO.PhotoStation.SmartAlbum", "list").optJSONArray("smart_albums"))
 
     /** One item with its people and place. */
+    /** The Best Foto heart: an administrator tags the photo at once, anyone else files a suggestion (or takes it back).
+     *  Returns the new state ("best": 0, 1, 2) and how the write to Synology Photos went ("synology"). */
+    suspend fun setBest(id: String, on: Boolean): JSONObject =
+        call("best.php", "SYNO.PhotoStation.Best", "set", mapOf("id" to id, "value" to if (on) "1" else "0"))
+
     suspend fun details(id: String): Item? {
         val d = call("photo.php", "SYNO.PhotoStation.Photo", "getinfo", mapOf("id" to id, "additional" to "tags,video_codec,thumb_size"))
         return parseItems(d.optJSONArray("items")).firstOrNull()

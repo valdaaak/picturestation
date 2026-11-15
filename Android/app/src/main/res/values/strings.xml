@@ -302,4 +302,16 @@
     <string name="tags_none">No tags yet.</string>
     <string name="tag_added">Tag added.</string>
     <string name="tag_removed">Tag removed.</string>
+    <string name="best_on">In Best Foto</string>
+    <string name="best_waiting">Waiting for approval</string>
+    <string name="best_add">Add to Best Foto</string>
+    <string name="best_suggest">Suggest for Best Foto</string>
+    <string name="best_sent">Sent to the administrator for approval</string>
+    <string name="best_taken_back">Suggestion taken back</string>
+    <string name="best_added">Added to Best Foto</string>
+    <string name="best_removed">Removed from Best Foto</string>
+    <string name="best_admin_only">Only the administrator can take a photo out of Best Foto</string>
+    <string name="best_too_many">Too many suggestions are waiting</string>
+    <string name="best_failed">Best Foto could not be saved</string>
+    <string name="best_synology_failed">Saved here, but not written to Synology Photos</string>
 </resources>

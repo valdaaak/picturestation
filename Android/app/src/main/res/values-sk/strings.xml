@@ -307,4 +307,16 @@
     <string name="tags_none">Zatiaľ žiadne tagy.</string>
     <string name="tag_added">Tag pridaný.</string>
     <string name="tag_removed">Tag odobratý.</string>
+    <string name="best_on">Je v Best Foto</string>
+    <string name="best_waiting">Čaká na schválenie</string>
+    <string name="best_add">Pridať do Best Foto</string>
+    <string name="best_suggest">Navrhnúť do Best Foto</string>
+    <string name="best_sent">Odoslané správcovi na schválenie</string>
+    <string name="best_taken_back">Návrh stiahnutý</string>
+    <string name="best_added">Pridané do Best Foto</string>
+    <string name="best_removed">Odobraté z Best Foto</string>
+    <string name="best_admin_only">Fotku z Best Foto vie odobrať len správca</string>
+    <string name="best_too_many">Čaká priveľa návrhov</string>
+    <string name="best_failed">Best Foto sa nepodarilo uložiť</string>
+    <string name="best_synology_failed">Uložené tu, ale nezapísané do Synology Photos</string>
 </resources>

@@ -247,6 +247,8 @@ fun BrowseScreen(
                                     fontSize = if (vm.isTv) 17.sp else 11.sp, lineHeight = if (vm.isTv) 20.sp else 13.sp)
                             }
                         }
+                        if (it.isMedia && it.best != 0) HeartIcon(it.best, null,
+                            Modifier.align(Alignment.BottomEnd).padding(if (vm.isTv) 8.dp else 5.dp).size(if (vm.isTv) 22.dp else 15.dp), shadow = true)
                         if (it.type == "video") Text(
                             duration(it.durationMs), color = Paper, style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
