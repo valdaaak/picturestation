@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Preberanie ludi a tagov zo Synology Photos (spolocny priestor) cez API. Len citanie.
+"""Preberanie ludi a tagov zo Synology Photos (spolocny priestor) cez API. Len citanie; so SYNO_WRITE_TAGS=1
+sa tag pridany alebo odobraty v hlavnej galerii zapise aj do Synology Photos (push_tag).
 
 Servisny ucet potrebuje v Synology Photos uroven Full Access k spolocnemu priestoru - inak
 Synology Photos osoby v spolocnom priestore nevrati (chyba 801, viz KB Synology).
@@ -228,6 +229,87 @@ def sync_once():
     nt, nta, ntm = apply_tags(tags)
     log.info("tags from Synology Photos: %d tags, %d assignments (%d invalid paths)", nt, nta, ntm)
     return np, na
+
+
+# ---------- zapis tagov spat do Synology Photos (volitelne: SYNO_WRITE_TAGS=1) ----------
+# Tag pridany alebo odobraty v hlavnej galerii sa zapise aj do spolocneho priestoru Synology Photos cez jeho API
+# (do suborov sa nezapisuje nic). Sukromne galerie ostavaju bez zapisu: servisny ucet ich Osobny priestor nevidi.
+WRITE_TAGS = os.environ.get("SYNO_WRITE_TAGS", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def write_enabled() -> bool:
+    return WRITE_TAGS and enabled() and config.current().is_main
+
+
+def _nfc(s: str) -> str:
+    import unicodedata
+    return unicodedata.normalize("NFC", s or "")
+
+
+def _ok(r, what):
+    if not r.get("success"):
+        raise RuntimeError(f"{what}: {r.get('error')}")
+    return r["data"]
+
+
+def _folder_id(sid, folder: str):
+    """Id priecinka spolocneho priestoru podla cesty ('' = koren); None, ak ho Synology Photos nepozna.
+    Folder get s cestou vracia koren, preto sa ide po urovniach: mena deti su plne cesty ('/2026/Album')."""
+    fid = _ok(_call("SYNO.FotoTeam.Browse.Folder", "get", 1, sid), "koren priecinkov")["folder"]["id"]
+    cur = ""
+    for part in filter(None, folder.split("/")):
+        cur += "/" + part
+        found, off = None, 0
+        while found is None:
+            lst = _ok(_call("SYNO.FotoTeam.Browse.Folder", "list", 1, sid, id=fid, offset=off, limit=1000), f"priecinky {cur}")["list"]
+            found = next((x["id"] for x in lst if _nfc(x.get("name")) == _nfc(cur)), None)
+            if len(lst) < 1000:
+                break
+            off += 1000
+        if found is None:
+            return None
+        fid = found
+    return fid
+
+
+def _item_id(sid, rel: str):
+    """Id polozky Synology Photos pre subor `rel` (cesta od korena galerie); None, ak ju nema zaindexovanu."""
+    folder, _, fn = rel.rpartition("/")
+    fid = _folder_id(sid, folder)
+    if fid is None:
+        return None
+    off = 0
+    while True:
+        lst = _ok(_call("SYNO.FotoTeam.Browse.Item", "list", 1, sid, folder_id=fid, offset=off, limit=500), f"polozky {folder}")["list"]
+        for x in lst:
+            if _nfc(x.get("filename")) == _nfc(fn):
+                return x["id"]
+        if len(lst) < 500:
+            return None
+        off += 500
+
+
+def push_tag(rel: str, name: str, add: bool) -> str:
+    """Prida alebo odoberie tag `name` na subore `rel` v Synology Photos. Vrati 'ok', alebo 'missing', ked
+    Synology Photos ten subor (este) nema. Chyba API = vynimka."""
+    sid = _login()
+    try:
+        item = _item_id(sid, rel)
+        if item is None:
+            return "missing"
+        tags = _list_all(sid, "SYNO.FotoTeam.Browse.GeneralTag", "zoznam tagov")
+        tid = next((t["id"] for t in tags if (t.get("name") or "").strip().lower() == name.lower()), None)
+        if tid is None:
+            if not add:
+                return "ok"      # tag tam nie je, nie je co odobrat
+            tid = _ok(_call("SYNO.FotoTeam.Browse.GeneralTag", "create", 1, sid, name=name), "vytvorenie tagu")["tag"]["id"]
+        d = _ok(_call("SYNO.FotoTeam.Browse.Item", "add_tag" if add else "remove_tag", 1, sid, id=[item], tag=[tid]),
+                "zapis tagu")
+        if d.get("error_list"):
+            raise RuntimeError(f"zapis tagu: {d['error_list']}")
+        return "ok"
+    finally:
+        _logout(sid)
 
 
 def start():

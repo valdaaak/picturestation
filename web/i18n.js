@@ -115,6 +115,9 @@ const I18N_SK = {
   "In this photo": "Na fotke",
   "Remove tag": "Odobrať tag",
   "Add tag": "Pridať tag",
+  "The tag was saved here, but writing it to Synology Photos failed.": "Tag je uložený tu, ale zápis do Synology Photos zlyhal.",
+  "The tag was saved here. Synology Photos does not have this file yet, so it was not written there.":
+    "Tag je uložený tu. Synology Photos tento súbor ešte nemá, preto sa tam nezapísal.",
   "Error": "Chyba",
   "Comments ({n})": "Komentáre ({n})",
   "Comments": "Komentáre",

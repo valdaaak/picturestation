@@ -209,7 +209,7 @@ Synology Photos recognises faces and lets you name people. Picturestation can sh
 
 People are synchronised at every index run, every 30 minutes with the default settings. Only people with a name appear. Each user sees only the people on photos they are allowed to see. Guests see names only when the restriction **Guests without signing in see names of people** is turned on.
 
-The same run takes the **tags** of the shared space (Synology Photos' general tags) into the gallery's tags: a tag added in Synology Photos appears on the photo, a tag removed there disappears. Keywords written in the files and tags added in the gallery stay as they are. A Synology tag that an administrator removes from a photo in the gallery is not added again. Only the main gallery is synchronised: the service account sees the shared space, not the users' personal spaces.
+The same run takes the **tags** of the shared space (Synology Photos' general tags) into the gallery's tags: a tag added in Synology Photos appears on the photo, a tag removed there disappears. Keywords written in the files and tags added in the gallery stay as they are. A Synology tag that an administrator removes from a photo in the gallery is not added again. Only the main gallery is synchronised: the service account sees the shared space, not the users' personal spaces. With `SYNO_WRITE_TAGS=1` in the settings, a tag added or removed on a photo in the main gallery is written to the shared space of Synology Photos as well (through its API, nothing is written into the files); the gallery keeps the tag even when that fails, and says so.
 
 ## Personal galleries
 

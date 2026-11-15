@@ -943,6 +943,10 @@ async function adminPost(op, body) {
   const r = await fetch(BASE + "/api/admin/" + op, { method: "POST", credentials: "same-origin",
     headers: { "Content-Type": "application/json", "X-Lang": LANG }, body: JSON.stringify(body) });
   if (!r.ok) { alert(((await r.json().catch(() => ({}))).error) || t("Error")); return false; }
+  // a tag is written to Synology Photos too, when the server is set up so; the tag in the gallery stays either way
+  const res = await r.json().catch(() => ({}));
+  if (res.synology === "failed") alert(t("The tag was saved here, but writing it to Synology Photos failed."));
+  else if (res.synology === "missing") alert(t("The tag was saved here. Synology Photos does not have this file yet, so it was not written there."));
   return true;
 }
 

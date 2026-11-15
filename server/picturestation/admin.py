@@ -484,7 +484,20 @@ def tag_add(_me, b):
     tid = db.execute("SELECT id FROM tags WHERE name=?", (name,)).fetchone()["id"]
     db.execute("INSERT OR IGNORE INTO item_tags(path, tag_id, source) VALUES (?,?,'manual')", (rel, tid))
     db.execute("DELETE FROM tag_suppress WHERE path=? AND tag_id=?", (rel, tid))
-    return {"ok": True, "id": f"tag_{tid}"}
+    return {"ok": True, "id": f"tag_{tid}", "synology": _push_tag(rel, name, True)}
+
+
+def _push_tag(rel, name, add) -> str:
+    """Writes the change to Synology Photos too, when that is turned on (SYNO_WRITE_TAGS). The tag in the gallery
+    stays whatever happens there: 'ok', 'missing' (Synology Photos does not have the file), 'failed' or 'off'."""
+    from . import synosync
+    if not synosync.write_enabled():
+        return "off"
+    try:
+        return synosync.push_tag(rel, name, add)
+    except Exception as e:
+        synosync.log.warning("tag %s %r on %s not written to Synology Photos: %s", "add" if add else "remove", name, rel, e)
+        return "failed"
 
 
 def tag_remove(_me, b):
@@ -494,15 +507,18 @@ def tag_remove(_me, b):
         raise AdminError("Invalid tag.")
     db = store.db()
     row = db.execute("SELECT source FROM item_tags WHERE path=? AND tag_id=?", (rel, t[1])).fetchone()
-    if row and row["source"] in ("file", "synology"):
-        # klucove slovo v subore alebo tag v Synology Photos: zapamatat, aby ho indexer ani preberanie znova nepridali
+    nm = db.execute("SELECT name FROM tags WHERE id=?", (t[1],)).fetchone()
+    pushed = _push_tag(rel, nm["name"], False) if row and nm else "off"
+    # klucove slovo v subore alebo tag v Synology Photos: zapamatat, aby ho indexer ani preberanie znova nepridali.
+    # Tag odobraty aj v Synology Photos si pamatat netreba: ked ho tam niekto prida znova, ma sa vratit.
+    if row and (row["source"] == "file" or (row["source"] == "synology" and pushed != "ok")):
         db.execute("INSERT OR IGNORE INTO tag_suppress VALUES (?,?)", (rel, t[1]))
     db.execute("DELETE FROM item_tags WHERE path=? AND tag_id=?", (rel, t[1]))
     # nepouzity tag zmazat
     if not db.execute("SELECT 1 FROM item_tags WHERE tag_id=? UNION SELECT 1 FROM tag_suppress WHERE tag_id=?",
                       (t[1], t[1])).fetchone():
         db.execute("DELETE FROM tags WHERE id=?", (t[1],))
-    return {"ok": True}
+    return {"ok": True, "synology": pushed}
 
 
 def tag_names(_me, _b):
