@@ -134,7 +134,8 @@ def rewrite(dir_map, file_map=None, kind="auto"):
                 db.execute(f"DELETE FROM {table} WHERE rowid=?", (row["rid"],))
             n += 1
 
-    for table in ("access", "album_props", "unlocks", "shares", "item_tags", "tag_suppress", "comments"):
+    for table in ("access", "album_props", "unlocks", "shares", "item_tags", "tag_suppress", "comments",
+                  "best_proposals"):
         move_rows(table, ["path"])
     # titulna fotka albumu je cesta k suboru
     for row in db.execute("SELECT path, cover FROM album_props WHERE cover IS NOT NULL").fetchall():

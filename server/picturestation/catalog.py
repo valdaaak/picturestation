@@ -242,6 +242,25 @@ def item_tags(rel: str):
         "SELECT t.id, t.name FROM tags t JOIN item_tags i ON i.tag_id=t.id WHERE i.path=? ORDER BY t.name", (rel,))]
 
 
+# ---------------- Best Foto (srdiecko) ----------------
+BEST_DEFAULT = "Best Foto"
+
+
+def best_name() -> str:
+    """Tag, ktory zapina srdiecko pri fotke (nastavenie best_tag)."""
+    return " ".join((store.get_setting("best_tag") or "").split())[:64] or BEST_DEFAULT
+
+
+def best_paths() -> set:
+    return {r["path"] for r in store.db().execute(
+        "SELECT i.path FROM item_tags i JOIN tags t ON t.id=i.tag_id WHERE t.name=?", (best_name(),))}
+
+
+def best_pending(username) -> set:
+    """Fotky, ktore pouzivatel navrhol a admin o nich este nerozhodol."""
+    return {r["path"] for r in store.db().execute("SELECT path FROM best_proposals WHERE username=?", (username,))}
+
+
 # ---------------- filtre ----------------
 def _match(rel, kind, m, crit, tagmap, peoplemap=None):
     peoplemap = peoplemap or {}

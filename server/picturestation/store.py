@@ -149,6 +149,13 @@ CREATE TABLE IF NOT EXISTS moves_pending (
     candidates TEXT NOT NULL,
     created    INTEGER NOT NULL
 );
+-- navrhy pouzivatelov na oznacenie fotky tagom Best Foto (srdiecko); schvaluje alebo zamieta admin
+CREATE TABLE IF NOT EXISTS best_proposals (
+    path      TEXT NOT NULL,
+    username  TEXT NOT NULL,
+    created   INTEGER NOT NULL,
+    PRIMARY KEY (path, username)
+);
 CREATE TABLE IF NOT EXISTS unlocks (
     sid      TEXT NOT NULL,
     path     TEXT NOT NULL,

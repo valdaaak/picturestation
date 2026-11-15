@@ -565,6 +565,63 @@ g = call("photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="
 names = sorted(t["name"] for t in g["data"][0]["info"]["tags"])
 check("zmena v subore sa prejavi, rucny tag ostane", names == ["Best Foto", "Spomienka na Deda"], names)
 
+# --- srdiecko Best Foto: admin priamo, pouzivatel navrhom ---
+def best(cl, rel, value):
+    return gcall(cl, "best.php", api="SYNO.PhotoStation.Best", method="set", version="1", id=ids.item_id("photo", rel), value=str(value))
+
+def best_of(cl, rel, **kw):
+    g = gcall(cl, "photo.php", api="SYNO.PhotoStation.Photo", method="getinfo", version="1", id=ids.item_id("photo", rel), **kw)
+    return g["data"][0]["info"]
+
+B1, B2 = "2001/Maxim/01.jpg", "2001/Maxim/02.jpg"
+check("srdiecko: fotka s tagom zo suboru = 1", best_of(c, "2001/Maxim/kw.jpg")["best"] == 1)
+check("srdiecko: fotka bez tagu = 0", best_of(c, B1)["best"] == 0)
+r = best(k3, B1, 1)
+check("pouzivatel navrhne -> 2", r == {"success": True, "data": {"best": 2, "synology": "off"}}, r)
+check("navrh tag neprida", "Best Foto" not in [t["name"] for t in best_of(c, B1, additional="tags")["tags"]])
+check("navrh vidi len navrhovatel", best_of(k3, B1)["best"] == 2 and best_of(c, B1)["best"] == 0)
+r = gcall(k3, "album.php", api="SYNO.PhotoStation.Album", method="list", version="1", id=ids.album_id("2001/Maxim"),
+          offset="0", limit="120", type="album,video,photo")
+check("srdiecko je aj v zozname", {i["info"]["name"]: i["info"]["best"] for i in r["data"]["items"]
+                                   if i["type"] == "photo" and i["info"]["name"] in ("01.jpg", "02.jpg", "kw.jpg")}
+      == {"01.jpg": 2, "02.jpg": 0, "kw.jpg": 1}, r["data"]["items"])
+check("navrh stiahnuty -> 0", best(k3, B1, 0)["data"]["best"] == 0 and best_of(k3, B1)["best"] == 0)
+best(k3, B1, 1)
+best(k3, B1, 1)  # dvakrat = stale jeden navrh
+best(k3, B2, 1)
+check("pocet navrhov v state", adm("state").json()["best_pending"] == 2)
+bl = adm("best_list").json()
+check("best_list", [(x["path"], x["users"], x["item"]["id"]) for x in bl["items"]]
+      == [(B1, ["kolega"], ids.item_id("photo", B1)), (B2, ["kolega"], ids.item_id("photo", B2))] and bl["tag"] == "Best Foto", bl)
+check("best_list len admin", k3.get("/api/admin/best_list").status_code == 403)
+check("cudzia fotka -> 457", best(k3, "Súkromné/tajne.jpg", 1) == {"success": False, "error": {"code": 457}})
+check("host -> 495", best(g5, B1, 1) == {"success": False, "error": {"code": 495}})
+r = json.loads(k3.get(W + "best.php", params={"api": "SYNO.PhotoStation.Best", "method": "set", "version": "1",
+                                              "id": ids.item_id("photo", B1), "value": "1"}).text)
+check("srdiecko len cez POST", r == {"success": False, "error": {"code": 105}}, r)
+check("zamietnutie", adm("best_reject", {"paths": [B2]}).json() == {"ok": True, "rejected": 1} and best_of(k3, B2)["best"] == 0)
+r = adm("best_approve", {"paths": [B1, "nie/je.jpg"]})
+check("schvalenie", r.json() == {"ok": True, "approved": 1, "synology_failed": 0}, r.text)
+check("schvalene = tag pri fotke, navrh prec", "Best Foto" in [t["name"] for t in best_of(c, B1, additional="tags")["tags"]]
+      and best_of(k3, B1)["best"] == 1 and adm("best_list").json()["items"] == [])
+check("pouzivatel Best Foto neodoberie -> 496", best(k3, B1, 0) == {"success": False, "error": {"code": 496}})
+check("pouzivatel na oznacenej fotke: nic sa nemeni", best(k3, B1, 1)["data"]["best"] == 1 and adm("state").json()["best_pending"] == 0)
+check("admin odoberie priamo", best(c, B1, 0)["data"]["best"] == 0 and best_of(c, B1)["best"] == 0)
+best(k3, B2, 1)
+check("admin prida priamo a navrh k fotke zmizne", best(c, B2, 1)["data"]["best"] == 1 and adm("state").json()["best_pending"] == 0)
+best(k3, B1, 1)
+adm("tag_add", {"path": B1, "name": "best foto"})  # tag pribudol inou cestou -> navrh je vybaveny
+check("navrh na uz oznacenu fotku sa zo zoznamu strati", adm("best_list").json()["items"] == [] and adm("state").json()["best_pending"] == 0)
+best(c, B1, 0)
+best(c, B2, 0)
+adm("user_create", {"username": "docasny", "password": "docasny123"})
+adm("grant", {"type": "user", "name": "docasny", "path": "2001/Maxim"})
+kd = TestClient(appmod.app)
+gcall(kd, "auth.php", api="SYNO.PhotoStation.Auth", method="login", version="1", username="docasny", password="docasny123")
+check("druhy pouzivatel navrhne", best(kd, B2, 1)["data"]["best"] == 2 and adm("state").json()["best_pending"] == 1)
+adm("user_delete", {"username": "docasny"})
+check("zmazanie pouzivatela zmaze jeho navrhy", adm("state").json()["best_pending"] == 0)
+
 # --- vylucenie albumu ---
 adm("user_create", {"username": "kamos", "password": "kamosheslo1"})
 adm("group_create", {"name": "Kamosi"})

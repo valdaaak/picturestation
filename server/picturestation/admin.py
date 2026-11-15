@@ -85,7 +85,8 @@ def state(_me, _b):
     for u in users:
         u["groups"] = sorted(names.get(g, g) for g in u["groups"])
     from . import __version__
-    return {"version": __version__, "is_main": config.current().is_main, "users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
+    return {"version": __version__, "is_main": config.current().is_main,
+            "best_pending": db.execute("SELECT COUNT(DISTINCT path) FROM best_proposals").fetchone()[0], "users": users, "groups": groups, "guest": {"grants": _grants(store.GUEST)},
             "settings": {"title": store.get_setting("title", store.default_title()), **store.flags(),
                          "root_album_order": store.get_setting("root_album_order", "asc"),
                          "language": store.get_setting("language", "auto") or "auto"}}
@@ -144,7 +145,7 @@ def user_delete(me, b):
     db = store.db()
     for sql in ("DELETE FROM users WHERE username=?", "DELETE FROM access WHERE username=?",
                 "DELETE FROM sessions WHERE username=?", "DELETE FROM devices WHERE username=?",
-                "DELETE FROM group_members WHERE username=?"):
+                "DELETE FROM group_members WHERE username=?", "DELETE FROM best_proposals WHERE username=?"):
         db.execute(sql, (name,))
     return {"ok": True}
 
@@ -521,6 +522,56 @@ def tag_remove(_me, b):
     return {"ok": True, "synology": pushed}
 
 
+def best_list(me, b):
+    """Navrhy na Best Foto, ktore cakaju na admina: jedna polozka na fotku, s tym, kto ju navrhol."""
+    from . import app as api
+    ctx = api.Ctx(None, {}, b.get("_sid"), me)
+    db, have, by = store.db(), catalog.best_paths(), {}
+    for r in db.execute("SELECT path, username, created FROM best_proposals ORDER BY created, username"):
+        by.setdefault(r["path"], []).append(r)
+    items, missing = [], 0
+    for path, rows in by.items():
+        if path in have:  # tag medzitym pribudol inak (subor, Synology Photos, rucne) -> navrh je vybaveny
+            db.execute("DELETE FROM best_proposals WHERE path=?", (path,))
+            continue
+        try:
+            item = api.media_item(ctx, media.file_entry(path))
+        except (OSError, ids.BadId):
+            missing += 1  # subor teraz nie je dostupny; navrh nechat, moze sa vratit (presun, odpojeny disk)
+            continue
+        items.append({"path": path, "item": item, "users": [r["username"] for r in rows], "created": rows[0]["created"]})
+    return {"tag": catalog.best_name(), "items": items, "missing": missing}
+
+
+def _best_paths(b):
+    paths = b.get("paths")
+    if not isinstance(paths, list) or not paths or not all(isinstance(p, str) for p in paths):
+        raise AdminError("Invalid path.")
+    return paths
+
+
+def best_approve(me, b):
+    db, name, done, failed = store.db(), catalog.best_name(), 0, 0
+    for path in _best_paths(b):
+        if not db.execute("SELECT 1 FROM best_proposals WHERE path=?", (path,)).fetchone():
+            continue
+        try:
+            res = tag_add(me, {"path": path, "name": name})
+        except AdminError:
+            continue  # subor nie je -> navrh ostava
+        db.execute("DELETE FROM best_proposals WHERE path=?", (path,))
+        done += 1
+        failed += res["synology"] in ("failed", "missing")
+    return {"ok": True, "approved": done, "synology_failed": failed}
+
+
+def best_reject(_me, b):
+    db, n = store.db(), 0
+    for path in _best_paths(b):
+        n += db.execute("DELETE FROM best_proposals WHERE path=?", (path,)).rowcount > 0
+    return {"ok": True, "rejected": n}
+
+
 def tag_names(_me, _b):
     return {"tags": [r["name"] for r in store.db().execute("SELECT name FROM tags ORDER BY name COLLATE NOCASE")]}
 
@@ -709,6 +760,7 @@ OPS = {
     "moves_state": moves_state, "moves_remap": moves_remap, "orphan_delete": orphan_delete,
     "access_view": access_view, "album_access": album_access,
     "tag_add": tag_add, "tag_remove": tag_remove, "tag_names": tag_names,
+    "best_list": best_list, "best_approve": best_approve, "best_reject": best_reject,
     "smart_save": smart_save, "smart_delete": smart_delete,
     "comment_delete": comment_delete,
     "share_create": share_create, "share_list": share_list, "share_delete": share_delete,
@@ -736,7 +788,7 @@ async def endpoint(req: Request):
         except ValueError:
             return JSONResponse({"error": i18n.tr("Bad JSON.", lang)}, status_code=400)
     else:
-        if op not in ("state", "albums", "album_get", "share_list", "device_list", "tag_names", "moves_state",
+        if op not in ("state", "albums", "album_get", "share_list", "device_list", "tag_names", "moves_state", "best_list",
                       "galleries_list"):
             return JSONResponse({"error": i18n.tr("POST required.", lang)}, status_code=405)
         body = dict(req.query_params)

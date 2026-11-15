@@ -60,6 +60,7 @@ APIS = {
     "SYNO.PhotoStation.ACL": ("acl.php", 1, 1),
     "SYNO.PhotoStation.AdvancedShare": ("advanced_share.php", 1, 1),
     "SYNO.PhotoStation.AppPrivilege": ("app_privilege.php", 1, 1),
+    "SYNO.PhotoStation.Best": ("best.php", 1, 1),  # Picturestation's own: the Best Foto heart
 }
 
 # Prazdne odpovede pre funkcie, ktore server zatial nema (appka ich vola, nesmie spadnut).
@@ -125,7 +126,14 @@ class Ctx:
         self.additional = set(filter(None, (p.get("additional") or "").split(",")))
         self._props = None
         self._public = None
+        self._best = None
         self.r = restrictions(username, self.perm.admin)
+
+    def best(self, rel) -> int:
+        """Srdiecko pri fotke: 0 = nic, 1 = ma tag Best Foto, 2 = moj navrh caka na admina."""
+        if self._best is None:
+            self._best = (catalog.best_paths(), catalog.best_pending(self.username) if self.username else set())
+        return 1 if rel in self._best[0] else 2 if rel in self._best[1] else 0
 
     def props(self, rel):
         if self._props is None:
@@ -230,7 +238,8 @@ def media_item(ctx: Ctx, f: dict, m=None) -> dict:
         has_thumb = media._ea_thumb(rel, "small") is not None
     info = {"name": f["name"], "title": title, "description": "", "createdate": media.fmt_ts(f["mtime"]),
             "takendate": m.get("taken") or media.fmt_ts(f["mtime"]), "size": f["size"],
-            "resolutionx": m.get("w", 0), "resolutiony": m.get("h", 0), "rotated": False, "rating": 0}
+            "resolutionx": m.get("w", 0), "resolutiony": m.get("h", 0), "rotated": False, "rating": 0,
+            "best": ctx.best(rel)}
     add = {"thumb_size": {"small": {**media.thumb_dims(m, "small"), "mtime": mt},
                           "large": {**media.thumb_dims(m, "large"), "mtime": mt},
                           "preview": {**media.thumb_dims(m, "preview"), "mtime": mt}},
@@ -893,7 +902,51 @@ def api_comment(ctx: Ctx):
     return ok({"id": str(cur.lastrowid)})
 
 
+E_BEST_LOGIN, E_BEST_ADMIN, E_BEST_LIMIT = 495, 496, 497
+BEST_MAX_PENDING = 500  # navrhov jedneho pouzivatela, o ktorych admin este nerozhodol
+
+
+def api_best(ctx: Ctx):
+    """Srdiecko Best Foto. Admin tag priamo prida alebo odoberie; ostatni prihlaseni podavaju navrh,
+    ktory admin schvali v Nastaveniach, a vlastny nerozhodnuty navrh vedia stiahnut."""
+    p = ctx.p
+    if p["method"] != "set":
+        return err(E_NO_METHOD)
+    if not ctx.username:
+        return err(E_BEST_LOGIN)
+    rel = _media_from_id(ctx, p.get("id"))["rel"]
+    on = _int(p.get("value"), 1) != 0
+    db, name, syn = store.db(), catalog.best_name(), "off"
+    tag = db.execute("SELECT t.id FROM tags t JOIN item_tags i ON i.tag_id=t.id WHERE t.name=? AND i.path=?",
+                     (name, rel)).fetchone()
+    try:
+        if ctx.perm.admin:
+            if on and not tag:
+                syn = admin.tag_add(ctx.username, {"path": rel, "name": name})["synology"]
+            elif not on and tag:
+                syn = admin.tag_remove(ctx.username, {"path": rel, "tag": f"tag_{tag['id']}"})["synology"]
+            if on:
+                db.execute("DELETE FROM best_proposals WHERE path=?", (rel,))
+            media.clear_cover_cache()
+            catalog.clear_covers()
+            return ok({"best": 1 if on else 0, "synology": syn})
+    except admin.AdminError:
+        return err(E_PHOTO_BAD)
+    if tag:
+        return ok({"best": 1}) if on else err(E_BEST_ADMIN)
+    if on:
+        n = db.execute("SELECT COUNT(*) FROM best_proposals WHERE username=?", (ctx.username,)).fetchone()[0]
+        if n >= BEST_MAX_PENDING:
+            return err(E_BEST_LIMIT)
+        db.execute("INSERT OR IGNORE INTO best_proposals(path, username, created) VALUES (?,?,?)",
+                   (rel, ctx.username, int(time.time())))
+    else:
+        db.execute("DELETE FROM best_proposals WHERE path=? AND username=?", (rel, ctx.username))
+    return ok({"best": 2 if on else 0, "synology": syn})
+
+
 HANDLERS = {
+    "SYNO.PhotoStation.Best": api_best,
     "SYNO.PhotoStation.Cover": api_cover,
     "SYNO.PhotoStation.Comment": api_comment,
     "SYNO.PhotoStation.Tag": api_tag,
@@ -910,7 +963,7 @@ NO_SESSION_CHECK = {"SYNO.API.Info", "SYNO.PhotoStation.Auth", "SYNO.PhotoStatio
 
 
 MUTATING = {("SYNO.PhotoStation.Comment", "create"), ("SYNO.PhotoStation.Cover", "set"),
-            ("SYNO.PhotoStation.Auth", "logout")}
+            ("SYNO.PhotoStation.Auth", "logout"), ("SYNO.PhotoStation.Best", "set")}
 
 
 def dispatch(req: Request, p: dict, sid):
