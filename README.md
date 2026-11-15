@@ -252,6 +252,8 @@ The administrator configures everything in the web gallery under **Settings**:
 
 ![Settings](docs/screenshots/settings.png)
 
+**Best Foto.** The heart in the viewer marks a photo with the tag "Best Foto". An administrator's heart tags the photo at once; a heart from any other signed-in user is a suggestion that waits in **Settings, Best Foto** until the administrator approves or rejects it. In the web the key is `b`, on a TV remote the yellow button.
+
 **Moving folders.** When you move or rename folders on disk, for example at the end of the year, Picturestation recognises them by their files. It then carries over rights, titles, covers, tags, comments and links. **Settings, Moves** lists what could not be matched automatically.
 
 **Command line:**

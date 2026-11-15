@@ -4,6 +4,11 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+## 0.5.0 – 2026-11-15
+
+- The Best Foto heart (web, Android 0.2.10, LG TV 0.1.8). Every photo and video in the viewer has a heart: an outline when it does not have the tag "Best Foto", filled when it has. An administrator's heart adds or removes the tag at once (and writes it to Synology Photos when `SYNO_WRITE_TAGS=1`). Any other signed-in user files a suggestion: their heart fills at once, drawn dashed while it waits, and a second press takes the suggestion back; other people see nothing until it is approved. **Settings, Best Foto** lists the suggested photos with who suggested them, and the administrator approves or rejects them, one by one or all at once. Only the administrator takes a photo out of Best Foto. Guests and share links have no heart. Marked photos carry a small heart in the grid. In the web the key is `b`, on a TV remote the yellow button. Suggestions follow moved and renamed files like tags do. The tag's name can be changed with the setting `best_tag`.
+- API: every item carries `info.best` (0 none, 1 tagged, 2 my suggestion waits); `SYNO.PhotoStation.Best` `set` (`id`, `value`) on `best.php`; admin operations `best_list`, `best_approve`, `best_reject`.
+
 ## 0.4.0 – 2026-11-15
 
 - Tags can be written back to Synology Photos. With `SYNO_WRITE_TAGS=1` (and the people sync set up), a tag added or removed on a photo in the main gallery is added or removed in the shared space of Synology Photos as well, through its API; nothing is written into the files. The tag in the gallery is saved in any case, and the web says so when Synology Photos could not be written or does not have the file yet. Private galleries are not written: the service account does not see their personal space. Off by default.

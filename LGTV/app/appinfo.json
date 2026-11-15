@@ -1,6 +1,6 @@
 {
   "id": "org.picturestation.tv",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "vendor": "Picturestation",
   "type": "web",
   "main": "index.html",

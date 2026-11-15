@@ -36,8 +36,16 @@ var I18N_SK = {
   "The upright copy of this video is being prepared; playing the original for now.":
     "Otočená kópia videa sa pripravuje, zatiaľ hrá originál.",
   "The photo could not be loaded.": "Fotka sa nedá načítať.",
-  "OK: details · Red: slideshow · Green: pause · Back: close":
-    "OK: detaily · Červené: prezentácia · Zelené: pauza · Back: zavrieť",
+  "OK: details · Red: slideshow · Green: pause · Yellow: Best Foto · Back: close":
+    "OK: detaily · Červené: prezentácia · Zelené: pauza · Žlté: Best Foto · Back: zavrieť",
+  "Only the administrator can take a photo out of Best Foto.": "Fotku z Best Foto vie odobrať len správca.",
+  "Too many suggestions are waiting.": "Čaká priveľa návrhov.",
+  "Best Foto could not be saved.": "Best Foto sa nepodarilo uložiť.",
+  "Saved here, but not written to Synology Photos.": "Uložené tu, ale nezapísané do Synology Photos.",
+  "Sent to the administrator for approval.": "Odoslané správcovi na schválenie.",
+  "Added to Best Foto.": "Pridané do Best Foto.",
+  "Suggestion taken back.": "Návrh stiahnutý.",
+  "Removed from Best Foto.": "Odobraté z Best Foto.",
   "Add gallery": "Pridať galériu",
   "Remove": "Odstrániť",
   "Press OK again to remove": "Stlač OK ešte raz na odstránenie",

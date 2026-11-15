@@ -3,7 +3,13 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.7";
+var APP_VERSION = "0.1.8";
+
+// The Best Foto heart: one outline for every state (the same as on the web and in the Android app).
+// item.info.best: 0 = not marked, 1 = has the tag, 2 = my suggestion waits for the administrator.
+var HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.4C5.6 15.6 3 12.3 3 8.9 3 6.1 5.1 4 7.8 4c1.7 0 3.2.9 4.2 2.3C13 4.9 14.5 4 16.2 4 18.9 4 21 6.1 21 8.9c0 3.4-2.6 6.7-9 11.5z"/></svg>';
+function bestOf(item) { return (item && item.info && item.info.best) || 0; }
+function heartClass(base, state) { return base + (state === 1 ? " on" : (state === 2 ? " pending" : "")); }
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 // pendingBase: the gallery address the setup and pairing screens work on
@@ -363,6 +369,13 @@ function browseScreen(where) {
     return s ? Math.floor(s / 60) + ":" + (s % 60 < 10 ? "0" : "") + (s % 60) : "video";
   }
 
+  function drawTileHeart(ent) {
+    var s = bestOf(ent.item);
+    if (!s) { if (ent.heart) { ent.tile.removeChild(ent.heart); ent.heart = null; } return; }
+    if (!ent.heart) { ent.heart = el("div", "heart"); ent.heart.innerHTML = HEART; ent.tile.appendChild(ent.heart); }
+    ent.heart.className = heartClass("heart", s);
+  }
+
   function addEntry(kind, item) {
     var i = entries.length;
     var tile = el("div", "tile " + kind);
@@ -383,6 +396,7 @@ function browseScreen(where) {
       if (kind === "album" || kind === "group" || kind === "coll") tile.appendChild(el("div", "cap", itemTitle(item)));
       if (kind === "video") tile.appendChild(el("div", "badge", duration(item)));
       if (kind === "photo" && item.info && item.info.live) tile.appendChild(el("div", "badge", "LIVE"));
+      if (kind === "photo" || kind === "video") drawTileHeart(ent);
     }
     if (kind === "photo" || kind === "video") { ent.media = media.length; mediaIndex.push(i); media.push(item); }
     tile.addEventListener("mouseover", function () { setFocusIdx(i); }, false);
@@ -536,6 +550,7 @@ function browseScreen(where) {
     hasMore: function () { return loaded < total; },
     more: function (cb) { if (loaded < total && alive) { pendingMore = cb; load(); } else cb(); },
     focusMedia: function (m) { if (mediaIndex[m] !== undefined) setFocusIdx(mediaIndex[m]); },
+    bestChanged: function (m) { if (mediaIndex[m] !== undefined) drawTileHeart(entries[mediaIndex[m]]); },
     onKey: function (code) {
       if (!entries.length) return false;
       if (code === KEY.LEFT) { setFocusIdx(focus - 1); return true; }
@@ -569,6 +584,33 @@ function viewerScreen(browse, index, autoplay) {
   playTag.appendChild(el("span", "tri"));
   playTag.appendChild(el("span", "bars"));
   node.appendChild(playTag);
+  var heart = el("div", "corner heart");   // the Best Foto heart, toggled with the yellow button
+  heart.innerHTML = HEART;
+  node.appendChild(heart);
+  var heartHidden = false, bestBusy = false;
+  function drawHeart() { heart.className = heartClass("corner heart", bestOf(list[cur])) + (heartHidden ? " hide" : ""); }
+  function toggleBest() {
+    var item = list[cur], at = cur;
+    if (!item || bestBusy) return;
+    var was = bestOf(item);
+    bestBusy = true;
+    API.call("best.php", "SYNO.PhotoStation.Best", "set", { id: item.id, value: was ? 0 : 1 }, function (e, d) {
+      bestBusy = false;
+      if (!alive) return;
+      if (e) {
+        UI.toast(e.error === 496 ? t("Only the administrator can take a photo out of Best Foto.")
+          : (e.error === 497 ? t("Too many suggestions are waiting.") : t("Best Foto could not be saved.")), 4000);
+        return;
+      }
+      item.info.best = d.best || 0;
+      if (details[item.id]) details[item.id].best = item.info.best;
+      browse.bestChanged(at);
+      showOverlay();
+      UI.toast(d.synology === "failed" || d.synology === "missing" ? t("Saved here, but not written to Synology Photos.")
+        : (d.best === 2 ? t("Sent to the administrator for approval.")
+        : (d.best === 1 ? t("Added to Best Foto.") : (was === 2 ? t("Suggestion taken back.") : t("Removed from Best Foto.")))));
+    });
+  }
   var tagTimer = null;
   function showTag(state, ms) {
     // state: "playing" | "paused" | "" ; ms > 0 hides it again after that time
@@ -597,7 +639,7 @@ function viewerScreen(browse, index, autoplay) {
       apply(d[0].info);
     });
   }
-  ov.appendChild(el("div", "hint", t("OK: details · Red: slideshow · Green: pause · Back: close")));
+  ov.appendChild(el("div", "hint", t("OK: details · Red: slideshow · Green: pause · Yellow: Best Foto · Back: close")));
   node.appendChild(ov);
 
   var list = browse.media;
@@ -719,12 +761,16 @@ function viewerScreen(browse, index, autoplay) {
     setFocus(ov, false);
     ov.className = "ov";
     counter.className = "corner counter";
+    heartHidden = false;
+    drawHeart();
     if (hideTimer) clearTimeout(hideTimer);
     hideTimer = setTimeout(hideOverlay, 3500);
   }
   function hideOverlay() {
     ov.className = "ov hide";
     counter.className = "corner counter hide";
+    heartHidden = true;
+    drawHeart();
   }
   function toggleOverlay() {
     if (ov.className.indexOf("hide") >= 0) showOverlay(); else { if (hideTimer) clearTimeout(hideTimer); hideOverlay(); }
@@ -786,6 +832,7 @@ function viewerScreen(browse, index, autoplay) {
   }
 
   // the Magic Remote pointer: left third = previous, right third = next, middle = details; wheel = next/previous
+  heart.addEventListener("click", function (e) { e.stopPropagation(); toggleBest(); }, false);
   node.addEventListener("click", function (e) {
     if (e.clientX < 500) show(cur - 1); else if (e.clientX > 1420) show(cur + 1); else toggleOverlay();
   }, false);
@@ -818,6 +865,7 @@ function viewerScreen(browse, index, autoplay) {
       if (code === KEY.PLAY || code === KEY.RED) { setPlaying(!playing); return true; }
       if (code === KEY.PAUSE || code === KEY.STOP || code === KEY.GREEN) { setPlaying(false); return true; }
       if (code === KEY.UP || code === KEY.DOWN) { toggleOverlay(); return true; }
+      if (code === KEY.YELLOW) { toggleBest(); return true; }
       return false;
     }
   };
