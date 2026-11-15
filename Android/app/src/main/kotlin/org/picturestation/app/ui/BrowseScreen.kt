@@ -68,6 +68,10 @@ import org.picturestation.app.data.Item
 
 private const val SPECIAL_LATEST = "latest"
 private const val SPECIAL_COLLECTIONS = "collections"
+/** An album named by its day or days ("2026-10-24 Name", "2026-01-23-17 Name", "2026-05 Mix"): the date and the name. */
+private val DATED = Regex("""^(\d{4}-\d{2}(?:-\d{2}){0,2})\s+(.+)$""")
+private val Condensed = androidx.compose.ui.text.font.FontFamily(
+    android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.NORMAL))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -229,12 +233,20 @@ fun BrowseScreen(
                             if (play) LiveMotion(vm, live, muted = true, crop = true) { play = false }
                             LiveBadge(Modifier.align(Alignment.TopEnd), if (vm.isTv) 14.sp else 10.sp)
                         }
-                        if (it.isFolder) Text(
-                            it.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper,
-                            fontSize = if (vm.isTv) 17.sp else 12.sp, lineHeight = if (vm.isTv) 20.sp else 14.sp,
-                            modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                                .background(Color(0x99000000)).padding(horizontal = if (vm.isTv) 10.dp else 6.dp, vertical = if (vm.isTv) 5.dp else 3.dp),
-                        )
+                        if (it.isFolder) {
+                            // "2026-10-24 Marianka Stuzkova": the date gets its own small line, the name two lines
+                            // in a condensed face, so that more of it fits on a narrow tile
+                            val m = DATED.find(it.title)
+                            val date = m?.groupValues?.get(1)
+                            val name = m?.groupValues?.get(2) ?: it.title
+                            Column(modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()
+                                .background(Color(0x99000000)).padding(horizontal = if (vm.isTv) 10.dp else 5.dp, vertical = if (vm.isTv) 5.dp else 3.dp)) {
+                                if (date != null) Text(date, maxLines = 1, color = Muted, fontFamily = Condensed,
+                                    fontSize = if (vm.isTv) 13.sp else 9.sp, lineHeight = if (vm.isTv) 15.sp else 11.sp)
+                                Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper, fontFamily = Condensed,
+                                    fontSize = if (vm.isTv) 17.sp else 11.sp, lineHeight = if (vm.isTv) 20.sp else 13.sp)
+                            }
+                        }
                         if (it.type == "video") Text(
                             duration(it.durationMs), color = Paper, style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
