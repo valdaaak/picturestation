@@ -4,6 +4,7 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Collections in the apps (Android 0.2.8, LG TV 0.1.7), laid out like the web's Collections tab: a Collections tile on the start screen opens the smart albums followed by People, Tags and Places; tags are listed by name, places by country and then by the number of photos, and a tag, person, place or smart album opens its photos newest first, with the viewer and the slideshow as in an album. The People, Tags and Places tiles and the countries show the cover of their biggest entry (the web shows a collage of four). Creating and editing smart albums stays in the web.
 - Live Photos in the TV apps (Android 0.2.5, LG TV 0.1.5): a tile shows LIVE, and when the focus rests on it the motion plays once, muted, in the tile; OK opens the photo full screen without playing it again; moving to a Live Photo in the viewer (arrows, swipe, slideshow) plays its motion once over the photo. On a phone the viewer has a LIVE button that plays the motion with sound. Android 0.2.6 draws the motion in a TextureView, so it stays inside its tile. Android 0.2.7 downloads the motions around the focus and the photo in view ahead into a 100 MB clip cache, so they start at once (ordinary videos are still not prefetched). In a slideshow (Android 0.2.7, LG TV 0.1.6) the zoom and the interval of a Live Photo start when its motion has played, so the zoomed photo does not show beside the clip.
 
 ## 0.3.0 – 2026-11-01

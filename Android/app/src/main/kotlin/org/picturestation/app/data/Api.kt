@@ -107,6 +107,22 @@ class Api(private val store: Store) {
         return parseItems(d.optJSONArray("items")) to d.optInt("total", 0)
     }
 
+    /** Photos and videos of a tag, person or place (`tag_...`) or of a smart album (`smart_...`), newest first. */
+    suspend fun listGroup(groupId: String, offset: Int, limit: Int): Pair<List<Item>, Int> {
+        val d = call("photo.php", "SYNO.PhotoStation.Photo", "list", mapOf("type" to "photo,video",
+            "offset" to "$offset", "limit" to "$limit", "sort_by" to "takendate", "sort_direction" to "desc",
+            "additional" to "thumb_size,video_codec",
+            (if (groupId.startsWith("smart_")) "filter_smart" else "filter_tag") to groupId))
+        return parseItems(d.optJSONArray("items")) to d.optInt("total", 0)
+    }
+
+    /** Tags of one kind: desc (description tags), geo (places) or people. */
+    suspend fun tags(type: String): List<Item> =
+        parseItems(call("tag.php", "SYNO.PhotoStation.Tag", "list", mapOf("type" to type, "limit" to "5000")).optJSONArray("tags"))
+
+    suspend fun smartAlbums(): List<Item> =
+        parseItems(call("smart_album.php", "SYNO.PhotoStation.SmartAlbum", "list").optJSONArray("smart_albums"))
+
     /** One item with its people and place. */
     suspend fun details(id: String): Item? {
         val d = call("photo.php", "SYNO.PhotoStation.Photo", "getinfo", mapOf("id" to id, "additional" to "tags,video_codec,thumb_size"))

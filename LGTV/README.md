@@ -61,6 +61,6 @@ The server side of the app is small: the DS photo API answers CORS requests from
 
 ## Not there yet
 
-- Tags, places, people, smart albums and search. Albums and the newest photos are.
+- Search. Albums, the newest photos and the Collections (smart albums, people, tags, places) are.
 - Password-protected albums cannot be opened on the TV.
 - Whether the TV's screensaver interrupts a long slideshow on webOS 3.x has not been verified on a TV yet.

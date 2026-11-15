@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -66,21 +67,22 @@ import org.picturestation.app.R
 import org.picturestation.app.data.Item
 
 private const val SPECIAL_LATEST = "latest"
+private const val SPECIAL_COLLECTIONS = "collections"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowseScreen(
     vm: AppViewModel, st: BrowseState,
-    onOpenAlbum: (Item) -> Unit, onOpenLatest: () -> Unit,
+    onOpenAlbum: (Item) -> Unit, onOpenLatest: () -> Unit, onOpenCollections: () -> Unit,
     onOpenMedia: (Int, Boolean) -> Unit, onSettings: () -> Unit, onBack: () -> Unit,
 ) {
     val sessionEnded = stringResource(R.string.session_ended)
     val passwordNote = stringResource(R.string.album_password)
     val failed = stringResource(R.string.load_failed)
     val network = stringResource(R.string.network_retry)
-    val isRoot = st.where.album == null && !st.where.latest
-    // tiles before the list on the root: the newest photos and the other paired galleries
-    val specials = (if (isRoot && vm.showLatest) 1 else 0) + (if (isRoot) vm.otherGalleries.size else 0)
+    val isRoot = st.where.album == null && !st.where.latest && st.where.coll == null && st.where.group == null
+    // tiles before the list on the root: the newest photos, the collections and the other paired galleries
+    val specials = (if (isRoot && vm.showLatest) 1 else 0) + (if (isRoot) 1 + vm.otherGalleries.size else 0)
     val grid = rememberLazyGridState(initialFirstVisibleItemIndex = st.firstVisible + specials)
 
     val latestNote = stringResource(R.string.update_latest)
@@ -105,6 +107,11 @@ fun BrowseScreen(
     val title = when {
         st.where.latest -> stringResource(R.string.latest_photos)
         st.where.album != null -> st.where.album.title
+        st.where.group != null -> st.where.group.title
+        st.where.coll == "people" -> stringResource(R.string.people)
+        st.where.coll == "tags" -> stringResource(R.string.tags)
+        st.where.coll == "places" -> st.where.country ?: stringResource(R.string.places)
+        st.where.coll != null -> stringResource(R.string.collections)
         else -> vm.title.ifEmpty { "Picturestation" }
     }
     val count = if (st.total == 1) stringResource(R.string.items_one, 1) else stringResource(R.string.items_many, st.total)
@@ -175,6 +182,17 @@ fun BrowseScreen(
                         }
                     }
                 }
+                if (isRoot) item(key = SPECIAL_COLLECTIONS) {
+                    Tile(tv = vm.isTv, onClick = onOpenCollections) {
+                        Column(modifier = Modifier.fillMaxSize().background(Color(0xFF263040)),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                            Icon(Icons.Filled.Collections, null, modifier = Modifier.size(if (vm.isTv) 48.dp else 28.dp), tint = Paper)
+                            Text(stringResource(R.string.collections), modifier = Modifier.padding(top = 6.dp, start = 6.dp, end = 6.dp),
+                                color = Paper, fontSize = if (vm.isTv) 20.sp else 13.sp, lineHeight = if (vm.isTv) 24.sp else 15.sp,
+                                textAlign = TextAlign.Center)
+                        }
+                    }
+                }
                 if (isRoot) vm.otherGalleries.forEach { gi ->
                     val g = vm.galleries[gi]
                     item(key = "gallery:" + g.base) {
@@ -193,12 +211,13 @@ fun BrowseScreen(
                 items(st.items.size, key = { st.items[it].id }) { i ->
                     val it = st.items[i]
                     Tile(tv = vm.isTv, onClick = {
-                        if (it.type == "album") onOpenAlbum(it) else onOpenMedia(st.mediaIndexOf(it), false)
+                        if (it.isFolder) onOpenAlbum(it) else onOpenMedia(st.mediaIndexOf(it), false)
                     }) { focused ->
                         // the Live Photo motions around the focus are downloaded ahead (small clips, LiveCache)
                         LaunchedEffect(focused) { if (focused && vm.isTv) vm.prefetchLive(st.items, i) }
-                        if (it.hasThumb) AsyncImage(
-                            model = vm.api.thumbUrl(it, "small"), contentDescription = it.title,
+                        val shown = it.cover ?: it   // a Collections tile shows the cover of its biggest entry
+                        if (shown.hasThumb) AsyncImage(
+                            model = vm.api.thumbUrl(shown, "small"), contentDescription = it.title,
                             contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
                         )
                         // Live Photo: on a TV the motion plays once, muted, when the focus rests on the tile;
@@ -210,7 +229,7 @@ fun BrowseScreen(
                             if (play) LiveMotion(vm, live, muted = true, crop = true) { play = false }
                             LiveBadge(Modifier.align(Alignment.TopEnd), if (vm.isTv) 14.sp else 10.sp)
                         }
-                        if (it.type == "album") Text(
+                        if (it.isFolder) Text(
                             it.title, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Paper,
                             fontSize = if (vm.isTv) 17.sp else 12.sp, lineHeight = if (vm.isTv) 20.sp else 14.sp,
                             modifier = Modifier.align(Alignment.BottomStart).fillMaxWidth()

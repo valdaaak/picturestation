@@ -58,7 +58,15 @@ fun Root(vm: AppViewModel) {
             is Screen.Browse -> key(screen.state) {
                 BrowseScreen(
                     vm, screen.state,
-                    onOpenAlbum = { vm.push(Screen.Browse(BrowseState(Where(album = it)))) },
+                    onOpenAlbum = {
+                        vm.push(Screen.Browse(BrowseState(when (it.type) {
+                            "album" -> Where(album = it)
+                            // a tile of the Collections: People, Tags, Places, or one country of the places
+                            "coll" -> Where(coll = it.name, cc = it.cc, country = it.country)
+                            else -> Where(group = it)   // a tag, a person, a place or a smart album
+                        })))
+                    },
+                    onOpenCollections = { vm.push(Screen.Browse(BrowseState(Where(coll = "root")))) },
                     onOpenLatest = { vm.push(Screen.Browse(BrowseState(Where(latest = true)))) },
                     onOpenMedia = { i, slideshow -> vm.push(Screen.Viewer(screen.state, i, slideshow)) },
                     onSettings = { vm.push(Screen.Settings) },

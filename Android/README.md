@@ -27,7 +27,8 @@ TV): the same functions as the web gallery's Settings, over the same `/api/admin
 the TV, Users, Groups and Without signing in tabs, the access editor (allow, exclude, remove a rule, allow all
 inside) and, through the menu of an album, Access, Share by link and Edit album; 0.2.1 adds Shares, General,
 Galleries (main gallery) and Moves; 0.2.2 adds the viewer's menu with Share by link, Set as album cover and Tags.
-Comments and smart albums are not in the app yet. Error messages come from the server in the
+0.2.8 adds the Collections (smart albums, people, tags, places) for browsing. Comments and editing of smart
+albums are not in the app yet. Error messages come from the server in the
 device's language (`X-Lang`).
 
 ## Build

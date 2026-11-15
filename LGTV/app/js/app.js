@@ -3,7 +3,7 @@
 // Screens of the TV app: address of the server, pairing code, albums and photos, viewer with slideshow, settings.
 // Everything is ES5 (Chromium 38 on webOS 3.x). Keys come from ui.js; the server from api.js.
 
-var APP_VERSION = "0.1.6";
+var APP_VERSION = "0.1.7";
 var COLS = 6, TILE = 290, GAP = 16, STEP = TILE + GAP, ROWS_VISIBLE = 3, PAGE = 400;
 var INTERVALS = [3, 5, 8, 12, 20, 30];
 // pendingBase: the gallery address the setup and pairing screens work on
@@ -38,6 +38,7 @@ function swapTo(screen) {
 }
 function changeAddress() { swapTo(setupScreen()); }
 function switchGallery(i) {
+  COLL = null;
   API.use(i);
   API.save();
   loadPrefs();
@@ -251,8 +252,81 @@ function startScreen() {
   };
 }
 
+// ---------------- collections: smart albums, people, tags, places ----------------
+// The lists behind the Collections, as the web gallery keeps them (one minute, per gallery).
+var COLL = null;
+function getCollections(fresh, cb) {
+  if (COLL && !fresh && COLL.base === API.server && Date.now() - COLL.t < 60000) return cb(null, COLL);
+  var out = { smart: [], tags: [], places: [], people: [], t: 0, base: API.server }, left = 4, fail = null;
+  function part(key, script, api, params, field) {
+    API.call(script, api, "list", params, function (e, d) {
+      // a list the gallery does not offer (people turned off) stays empty; a lost session or network fails all
+      if (e && e.code !== "api") fail = e;
+      else if (!e) out[key] = d[field] || [];
+      if (--left) return;
+      if (fail) return cb(fail);
+      out.t = Date.now();
+      COLL = out;
+      cb(null, out);
+    });
+  }
+  part("smart", "smart_album.php", "SYNO.PhotoStation.SmartAlbum", {}, "smart_albums");
+  part("tags", "tag.php", "SYNO.PhotoStation.Tag", { type: "desc", limit: 5000 }, "tags");
+  part("places", "tag.php", "SYNO.PhotoStation.Tag", { type: "geo", limit: 5000 }, "tags");
+  part("people", "tag.php", "SYNO.PhotoStation.Tag", { type: "people", limit: 5000 }, "tags");
+}
+function collCount(it) { return (it.info && it.info.count) || 0; }
+function byCount(a, b) { return collCount(b) - collCount(a); }
+// a tile of the Collections (People, Tags, Places, a country): it shows the cover of its biggest entry
+function collTile(kind, title, of, cc) {
+  var cover = null;
+  for (var i = 0; i < of.length; i++) {
+    if (of[i].thumbnail_status !== "default" && (!cover || collCount(of[i]) > collCount(cover))) cover = of[i];
+  }
+  return { type: "coll", kind: kind, name: title, cc: cc || "", cover: cover };
+}
+// One page of the Collections as entries. The root: the smart albums, then People, Tags and Places;
+// tags by name; places by country and then by the number of photos.
+function collectionPage(where, c) {
+  var i, out = [];
+  if (where.coll === "people") return c.people.slice();
+  if (where.coll === "tags") {
+    return c.tags.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  }
+  if (where.coll === "places" && !where.cc) {
+    var groups = {}, order = [];
+    for (i = 0; i < c.places.length; i++) {
+      var p = c.places[i], cc = (p.info && p.info.cc) || "";
+      if (!groups[cc]) { groups[cc] = { cc: cc, name: (p.info && p.info.country) || cc, items: [], count: 0 }; order.push(groups[cc]); }
+      groups[cc].items.push(p);
+      groups[cc].count += collCount(p);
+    }
+    order.sort(function (a, b) { return b.count - a.count; });
+    for (i = 0; i < order.length; i++) out.push(collTile("places", order[i].name, order[i].items, order[i].cc));
+    return out;
+  }
+  if (where.coll === "places") {
+    var list = [];
+    for (i = 0; i < c.places.length; i++) if (((c.places[i].info && c.places[i].info.cc) || "") === where.cc) list.push(c.places[i]);
+    list.sort(byCount);
+    for (i = 0; i < list.length; i++) {
+      // inside a country the tile says only the place ("Donovaly", not "Donovaly, Slovakia")
+      out.push({ id: list[i].id, type: list[i].type, name: String(list[i].name).split(", ")[0],
+        thumbnail_status: list[i].thumbnail_status, additional: list[i].additional, info: { count: collCount(list[i]) } });
+    }
+    return out;
+  }
+  out = c.smart.slice();
+  if (c.people.length) out.push(collTile("people", t("People"), c.people));
+  out.push(collTile("tags", t("Tags"), c.tags));
+  if (c.places.length) out.push(collTile("places", t("Places"), c.places));
+  return out;
+}
+
 // ---------------- albums and photos ----------------
-// where: null = root of the gallery, {latest: true} = newest photos, or an album item
+// where: null = root of the gallery, {latest: true} = newest photos, an album item, {coll: "root" | "people" |
+// "tags" | "places", cc, country} = a page of the Collections, {group: item} = the photos of a tag, person,
+// place or smart album
 function browseScreen(where) {
   var node = el("div", "screen");
   var head = el("div", "head");
@@ -269,7 +343,15 @@ function browseScreen(where) {
   node.appendChild(msg);
 
   var isRoot = !where, latest = !!(where && where.latest);
-  title.textContent = isRoot ? (STATE.title || "Picturestation") : (latest ? t("Latest photos") : itemTitle(where));
+  var coll = (where && where.coll) || "", group = (where && where.group) || null;
+  title.textContent = isRoot ? (STATE.title || "Picturestation")
+    : latest ? t("Latest photos")
+    : group ? itemTitle(group)
+    : coll === "people" ? t("People")
+    : coll === "tags" ? t("Tags")
+    : coll === "places" ? (where.country || t("Places"))
+    : coll ? t("Collections")
+    : itemTitle(where);
 
   var entries = [];      // {kind, item, tile, img, src, media}
   var media = [];        // photos and videos in order, for the viewer
@@ -287,16 +369,18 @@ function browseScreen(where) {
     tile.style.left = (i % COLS) * STEP + "px";
     tile.style.top = Math.floor(i / COLS) * STEP + "px";
     var ent = { kind: kind, item: item, tile: tile, img: null, src: "" };
-    if (kind === "latest" || kind === "settings" || kind === "gallery") {
+    if (kind === "latest" || kind === "settings" || kind === "gallery" || kind === "collections") {
       tile.className += " special" + (kind === "gallery" ? " gallery" : "");
-      tile.appendChild(el("div", "glyph" + (kind === "settings" ? " gear" : "")));
+      tile.appendChild(el("div", "glyph" + (kind === "settings" ? " gear" : (kind === "collections" ? " stack" : ""))));
       var label = kind === "latest" ? t("Latest photos") : (kind === "settings" ? t("Settings")
-        : (item.title || item.base.replace(/^https:\/\//, "")));   // another paired gallery
+        : (kind === "collections" ? t("Collections")
+        : (item.title || item.base.replace(/^https:\/\//, ""))));   // another paired gallery
       tile.appendChild(el("div", null, label));
     } else {
-      if (item.thumbnail_status && item.thumbnail_status !== "default") ent.src = API.thumb(item, "small");
+      var shown = kind === "coll" ? item.cover : item;   // a Collections tile shows the cover of its biggest entry
+      if (shown && shown.thumbnail_status && shown.thumbnail_status !== "default") ent.src = API.thumb(shown, "small");
       else tile.appendChild(el("div", "ph"));
-      if (kind === "album") tile.appendChild(el("div", "cap", itemTitle(item)));
+      if (kind === "album" || kind === "group" || kind === "coll") tile.appendChild(el("div", "cap", itemTitle(item)));
       if (kind === "video") tile.appendChild(el("div", "badge", duration(item)));
       if (kind === "photo" && item.info && item.info.live) tile.appendChild(el("div", "badge", "LIVE"));
     }
@@ -323,13 +407,16 @@ function browseScreen(where) {
       }
       var items = d.items || [];
       if (loaded === 0 && isRoot && !STATE.noTimeline) addEntry("latest", null);
+      if (loaded === 0 && isRoot) addEntry("collections", null);
       if (loaded === 0 && isRoot) {
         for (var gi = 0; gi < API.galleries.length; gi++) {
           if (gi !== API.active) addEntry("gallery", { index: gi, title: API.galleries[gi].title, base: API.galleries[gi].base });
         }
       }
       for (var i = 0; i < items.length; i++) {
-        addEntry(items[i].type === "album" ? "album" : (items[i].type === "video" ? "video" : "photo"), items[i]);
+        var ty = items[i].type;
+        addEntry(ty === "album" ? "album" : ty === "video" ? "video" : ty === "coll" ? "coll"
+          : (ty === "tag" || ty === "smart") ? "group" : "photo", items[i]);
       }
       loaded += items.length;
       total = Math.max(d.total || 0, loaded);
@@ -341,9 +428,17 @@ function browseScreen(where) {
       loadVisible();
       if (pendingMore) { var f = pendingMore; pendingMore = null; f(); }
     };
-    if (latest) {
-      API.call("photo.php", "SYNO.PhotoStation.Photo", "list", { type: "photo,video", offset: loaded, limit: PAGE,
-        sort_by: "takendate", sort_direction: "desc", additional: "thumb_size,video_codec" }, cb);
+    if (coll) {
+      getCollections(coll === "root", function (e, c) {
+        if (e) return cb(e);
+        var page = collectionPage(where, c);
+        cb(null, { items: page, total: page.length });
+      });
+    } else if (latest || group) {
+      var q = { type: "photo,video", offset: loaded, limit: PAGE,
+        sort_by: "takendate", sort_direction: "desc", additional: "thumb_size,video_codec" };
+      if (group) q[String(group.id).indexOf("smart_") === 0 ? "filter_smart" : "filter_tag"] = group.id;
+      API.call("photo.php", "SYNO.PhotoStation.Photo", "list", q, cb);
     } else {
       API.call("album.php", "SYNO.PhotoStation.Album", "list", { id: isRoot ? null : where.id, type: "album,photo,video",
         offset: loaded, limit: PAGE, sort_by: STATE.sortBy, sort_direction: STATE.sortDir,
@@ -422,6 +517,9 @@ function browseScreen(where) {
     if (!e) return;
     stopLive();
     if (e.kind === "latest") UI.push(browseScreen({ latest: true }));
+    else if (e.kind === "collections") UI.push(browseScreen({ coll: "root" }));
+    else if (e.kind === "coll") UI.push(browseScreen({ coll: e.item.kind, cc: e.item.cc, country: e.item.cc ? e.item.name : "" }));
+    else if (e.kind === "group") UI.push(browseScreen({ group: e.item }));
     else if (e.kind === "gallery") switchGallery(e.item.index);
     else if (e.kind === "settings") UI.push(settingsScreen());
     else if (e.kind === "album") UI.push(browseScreen(e.item));

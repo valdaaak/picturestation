@@ -22,8 +22,14 @@ data class Item(
     val path: String,            // relative path in the library ("" for the root); albums and files alike
     val tags: List<Pair<String, String>>,   // (id, name) of the description tags, when asked for (details)
     val live: String? = null,    // Live Photo: id of its motion video (the server hides that video from lists)
+    val count: Int = 0,          // collections (tag | smart): number of items inside
+    val cc: String? = null,      // a place: its country code and country name
+    val country: String? = null,
+    val cover: Item? = null,     // a tile of the Collections (type "coll"): the entry whose cover it shows
 ) {
     val isMedia get() = type == "photo" || type == "video"
+    /** An entry that opens another list: an album, a tag, a person, a place, a smart album, a Collections tile. */
+    val isFolder get() = !isMedia
 }
 
 fun parseItem(o: JSONObject): Item {
@@ -61,6 +67,9 @@ fun parseItem(o: JSONObject): Item {
         path = path,
         tags = tags,
         live = info.optString("live", "").ifEmpty { null },
+        count = info.optInt("count", 0),
+        cc = info.optString("cc", "").ifEmpty { null },
+        country = info.optString("country", "").ifEmpty { null },
     )
 }
 

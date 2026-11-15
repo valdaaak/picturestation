@@ -17,6 +17,9 @@
     <string name="session_ended">Prihlásenie skončilo, treba nový kód.</string>
     <string name="network_retry">Chyba siete, skúšam znova…</string>
     <string name="latest_photos">Najnovšie fotky</string>
+    <string name="collections">Zbierky</string>
+    <string name="people">Ľudia</string>
+    <string name="places">Miesta</string>
     <string name="settings">Nastavenia</string>
     <string name="no_photos">Tu nie sú žiadne fotky.</string>
     <string name="album_password">Tento album má heslo.</string>

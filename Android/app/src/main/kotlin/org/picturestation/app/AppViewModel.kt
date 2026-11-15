@@ -22,8 +22,14 @@ import org.picturestation.app.data.Item
 import org.picturestation.app.data.Store
 import org.picturestation.app.data.Updater
 
-/** Where a Browse screen looks: the root, the newest photos, or an album. */
-data class Where(val album: Item? = null, val latest: Boolean = false)
+/** Where a Browse screen looks: the root, the newest photos, an album, a page of the Collections
+ *  (`coll`: root | people | tags | places, with `cc` the places of one country) or the photos of a tag,
+ *  person, place or smart album (`group`). */
+data class Where(val album: Item? = null, val latest: Boolean = false,
+                 val coll: String? = null, val cc: String? = null, val country: String? = null, val group: Item? = null)
+
+/** The lists behind the Collections, as the web gallery keeps them. */
+class Collections(val smart: List<Item>, val tags: List<Item>, val places: List<Item>, val people: List<Item>, val at: Long)
 
 /** The list behind one Browse screen; kept while a deeper screen is open. */
 class BrowseState(val where: Where) {
@@ -164,7 +170,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     "ok" -> {
                         val i = store.upsert(Store.Gallery(base, r.optString("username"), r.optString("title")))
                         store.setSid(base, r.optString("sid")); store.active = i
-                        sync(); detailCache.clear()
+                        sync(); detailCache.clear(); collections = null
                         reset(Screen.Start); return@launch
                     }
                     "pending" -> pairNote = null
@@ -214,7 +220,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- galleries ----------
     fun switchGallery(i: Int) {
         if (i !in galleries.indices) return
-        store.active = i; sync(); detailCache.clear()
+        store.active = i; sync(); detailCache.clear(); collections = null
         isAdmin = false; admin = null
         reset(Screen.Start)
     }
@@ -237,8 +243,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 Log.d(TAG, "list ${st.where} from ${st.items.size}")
-                val (items, total) = if (st.where.latest) api.listLatest(st.items.size, page)
-                else api.listAlbum(st.where.album?.id, st.items.size, page, sortBy, sortDir)
+                val w = st.where
+                val (items, total) = when {
+                    w.group != null -> api.listGroup(w.group.id, st.items.size, page)
+                    w.coll != null -> collectionPage(w).let { it to it.size }
+                    w.latest -> api.listLatest(st.items.size, page)
+                    else -> api.listAlbum(w.album?.id, st.items.size, page, sortBy, sortDir)
+                }
                 Log.d(TAG, "list ${st.where}: ${items.size} items of $total")
                 st.items.addAll(items); st.total = maxOf(total, st.items.size)
             } catch (e: Api.ApiException) {
@@ -250,6 +261,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             st.loading = false
+        }
+    }
+
+    // ---------- collections: smart albums, people, tags, places (the web's Collections tab) ----------
+    private var collections: Collections? = null
+    private suspend fun collections(fresh: Boolean): Collections {
+        collections?.let { if (!fresh && System.currentTimeMillis() - it.at < 60_000) return it }
+        suspend fun part(block: suspend () -> List<Item>): List<Item> =
+            try { block() } catch (e: Api.ApiException) { if (e.kind == Api.Kind.API) emptyList() else throw e }
+        return Collections(part { api.smartAlbums() }, part { api.tags("desc") }, part { api.tags("geo") },
+            part { api.tags("people") }, System.currentTimeMillis()).also { collections = it }
+    }
+
+    /** One page of the Collections as tiles. The root: the smart albums, then People, Tags and Places (each with
+     *  the cover of its biggest entry); tags by name; places by country and then by the number of photos. */
+    private suspend fun collectionPage(w: Where): List<Item> {
+        val app = getApplication<Application>()
+        val c = collections(fresh = w.coll == "root")
+        fun tile(kind: String, title: String, of: List<Item>, n: Int, cc: String? = null) = Item(
+            id = "coll:$kind" + (cc?.let { ":$it" } ?: ""), type = "coll", name = kind, title = title, taken = null,
+            hasThumb = false, thumbMtime = null, sig = null, durationMs = 0, rotation = null, tvVersion = null, place = null,
+            people = emptyList(), path = "", tags = emptyList(), count = n, cc = cc, country = cc?.let { title },
+            cover = of.filter { it.hasThumb }.maxByOrNull { it.count })
+        return when (w.coll) {
+            "people" -> c.people
+            "tags" -> c.tags.sortedWith(compareBy(java.text.Collator.getInstance()) { it.title })
+            "places" -> if (w.cc == null) {
+                c.places.groupBy { it.cc ?: "" }.entries.sortedByDescending { e -> e.value.sumOf { it.count } }
+                    .map { (cc, list) -> tile("places", list.first().country ?: cc, list, list.size, cc) }
+            } else c.places.filter { (it.cc ?: "") == w.cc }.sortedByDescending { it.count }
+                .map { it.copy(title = it.title.substringBefore(", ")) }
+            else -> c.smart + listOfNotNull(
+                if (c.people.isNotEmpty()) tile("people", app.getString(R.string.people), c.people, c.people.size) else null,
+                tile("tags", app.getString(R.string.tags), c.tags, c.tags.size),
+                if (c.places.isNotEmpty()) tile("places", app.getString(R.string.places), c.places, c.places.map { it.cc ?: "" }.distinct().size) else null)
         }
     }
 
