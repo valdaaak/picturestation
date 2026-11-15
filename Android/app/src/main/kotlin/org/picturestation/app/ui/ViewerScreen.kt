@@ -124,6 +124,8 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
         "failed" to stringResource(R.string.best_failed), "syno" to stringResource(R.string.best_synology_failed),
     )
     var bestBusy by remember { mutableStateOf(false) }
+    var okDown by remember { mutableStateOf(false) }   // OK is held (the press began in the viewer)
+    var okLong by remember { mutableStateOf(false) }   // ... and it has already acted as a long press
 
     fun go(delta: Int) {
         if (media.isEmpty()) return
@@ -185,15 +187,28 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
     Box(
         modifier = Modifier.fillMaxSize().background(Color.Black).focusRequester(focus).focusable()
             .onPreviewKeyEvent { e ->
+                // OK on a TV: a short press (acted on at release) starts or pauses the slideshow, holding it is the heart.
+                // A remote without colour buttons (Chromecast) has no other key for it. Only a press that began
+                // here counts: the release of the OK that opened the photo from the grid is not ours.
+                if (vm.isTv && (e.key == Key.DirectionCenter || e.key == Key.Enter)) {
+                    val n = e.nativeKeyEvent
+                    if (e.type == KeyEventType.KeyDown) {
+                        if (n.repeatCount == 0) { okDown = true; okLong = false }
+                        else if (okDown && !okLong && n.eventTime - n.downTime >= 600) {
+                            okLong = true
+                            media.getOrNull(pager.currentPage)?.let { toggleBest(it) }
+                        }
+                    } else if (e.type == KeyEventType.KeyUp && okDown) {
+                        okDown = false
+                        if (!okLong) { playing = !playing; videoPaused = !playing; overlay = true }
+                    }
+                    return@onPreviewKeyEvent true
+                }
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (e.key) {
                     Key.DirectionLeft -> { go(-1); true }
                     Key.DirectionRight -> { go(1); true }
-                    // a TV remote without Play: OK shows the caption and starts the slideshow, OK again shows it and pauses
-                    Key.DirectionCenter, Key.Enter -> {
-                        if (vm.isTv) { playing = !playing; videoPaused = !playing; overlay = true } else overlay = !overlay
-                        true
-                    }
+                    Key.DirectionCenter, Key.Enter -> { overlay = !overlay; true }   // a keyboard on a phone or tablet
                     Key.DirectionUp, Key.DirectionDown -> { overlay = !overlay; true }
                     Key.MediaPlay, Key.MediaPlayPause, Key.ProgramRed -> { playing = !playing; overlay = true; true }
                     Key.MediaPause, Key.MediaStop, Key.ProgramGreen -> { playing = false; videoPaused = true; overlay = true; true }
@@ -271,6 +286,7 @@ fun ViewerScreen(vm: AppViewModel, st: BrowseState, start: Int, slideshow: Boole
                 val who = listOfNotNull(details?.people?.takeIf { it.isNotEmpty() }?.joinToString(", "), details?.place)
                 if (who.isNotEmpty()) Text(who.joinToString("   ·   "), color = Color(0xFFFFD37A), fontSize = if (big) 22.sp else 13.sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (big) Text(stringResource(R.string.best_hint_tv), color = Muted, fontSize = 16.sp, modifier = Modifier.padding(top = 6.dp))
             }
         } else if (playing) {
             Icon(Icons.Filled.PlayArrow, null, tint = Focus, modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(16.dp))

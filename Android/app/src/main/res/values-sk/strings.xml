@@ -319,4 +319,5 @@
     <string name="best_too_many">Čaká priveľa návrhov</string>
     <string name="best_failed">Best Foto sa nepodarilo uložiť</string>
     <string name="best_synology_failed">Uložené tu, ale nezapísané do Synology Photos</string>
+    <string name="best_hint_tv">Podrž OK: Best Foto</string>
 </resources>

@@ -4,6 +4,8 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Android 0.2.11: on a TV, holding OK in the viewer is the Best Foto heart (a remote without colour buttons, such as the Chromecast's, has no yellow button); a short OK still starts and pauses the slideshow, now at release. The caption shows the hint.
+
 ## 0.5.0 – 2026-11-15
 
 - The Best Foto heart (web, Android 0.2.10, LG TV 0.1.8). Every photo and video in the viewer has a heart: an outline when it does not have the tag "Best Foto", filled when it has. An administrator's heart adds or removes the tag at once (and writes it to Synology Photos when `SYNO_WRITE_TAGS=1`). Any other signed-in user files a suggestion: their heart fills at once, drawn dashed while it waits, and a second press takes the suggestion back; other people see nothing until it is approved. **Settings, Best Foto** lists the suggested photos with who suggested them, and the administrator approves or rejects them, one by one or all at once. Only the administrator takes a photo out of Best Foto. Guests and share links have no heart. Marked photos carry a small heart in the grid. In the web the key is `b`, on a TV remote the yellow button. Suggestions follow moved and renamed files like tags do. The tag's name can be changed with the setting `best_tag`.

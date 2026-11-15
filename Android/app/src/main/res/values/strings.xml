@@ -314,4 +314,5 @@
     <string name="best_too_many">Too many suggestions are waiting</string>
     <string name="best_failed">Best Foto could not be saved</string>
     <string name="best_synology_failed">Saved here, but not written to Synology Photos</string>
+    <string name="best_hint_tv">Hold OK: Best Foto</string>
 </resources>
