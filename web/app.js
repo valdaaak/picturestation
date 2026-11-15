@@ -685,8 +685,55 @@ function renderItems(items) {
       liveHover(tile, it);
     }
     tile.onclick = () => openViewer(idx);
+    it._tile = tile;
+    tileBest(it);
     grid.append(tile);
   }
+}
+
+// ---------- Best Foto (the heart) ----------
+// One outline for every state: empty = not marked, filled = has the tag, dashed and half filled = my suggestion
+// waits for the administrator. info.best comes with every item (0, 1, 2).
+const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.4C5.6 15.6 3 12.3 3 8.9 3 6.1 5.1 4 7.8 4c1.7 0 3.2.9 4.2 2.3C13 4.9 14.5 4 16.2 4 18.9 4 21 6.1 21 8.9c0 3.4-2.6 6.7-9 11.5z"/></svg>';
+
+function tileBest(it) {
+  const tile = it._tile;
+  if (!tile) return;
+  let b = tile.querySelector(".best");
+  if (!it.info.best) { if (b) b.remove(); return; }
+  if (!b) { b = el("span", "best"); b.innerHTML = HEART; tile.append(b); }
+  b.classList.toggle("pending", it.info.best === 2);
+}
+
+function drawBest(it) {
+  const b = $("vBest"), s = it.info.best || 0;
+  b.hidden = !S.user || !!S.share;
+  b.classList.toggle("on", s === 1);
+  b.classList.toggle("pending", s === 2);
+  b.setAttribute("aria-pressed", s ? "true" : "false");
+  b.disabled = s === 1 && !S.isAdmin;  // only the administrator takes a photo out of Best Foto
+  b.title = s === 1 ? (S.isAdmin ? t("Remove from Best Foto (b)") : t("In Best Foto"))
+    : s === 2 ? t("Waiting for approval. Click to take the suggestion back (b)")
+    : S.isAdmin ? t("Add to Best Foto (b)") : t("Suggest for Best Foto (b)");
+  b.setAttribute("aria-label", b.title);
+}
+
+async function toggleBest() {
+  const it = S.media[vIdx], b = $("vBest");
+  if (!it || b.hidden || b.disabled || b.classList.contains("busy")) return;
+  b.classList.add("busy");
+  try {
+    const d = await call("best.php", "SYNO.PhotoStation.Best", "set", { id: it.id, value: it.info.best ? 0 : 1 });
+    it.info.best = d.best;
+    tileBest(it);
+    if (S.media[vIdx] === it) { drawBest(it); if (S.isAdmin) renderInfo(it); }
+    if (d.synology === "failed") alert(t("The tag was saved here, but writing it to Synology Photos failed."));
+    else if (d.synology === "missing") alert(t("The tag was saved here. Synology Photos does not have this file yet, so it was not written there."));
+  } catch (e) {
+    alert(e.code === 496 ? t("Only the administrator can take a photo out of Best Foto.")
+      : e.code === 497 ? t("You have too many suggestions waiting. Wait for the administrator to go through them.")
+      : e.code === 495 || e.code === 106 ? t("Sign in to mark photos.") : t("Best Foto could not be saved."));
+  } finally { b.classList.remove("busy"); }
 }
 
 // Live Photo in the grid: with the mouse resting on the tile its motion plays once, muted. The short delay keeps
@@ -755,6 +802,7 @@ function show(i) {
   $("vTitle").textContent = `${it.info.title || it.info.name}  ·  ${i + 1} / ${mediaTotal}`;
   $("vCoverBtn").hidden = !S.isAdmin || !!S.share;
   $("vShareBtn").hidden = !S.isAdmin || !!S.share;
+  drawBest(it);
   $("vDownload").hidden = it.type !== "video" && !S.canDownload;
   $("vDownload").href = downloadUrl(it, false);
   $("vDownload").setAttribute("download", it.info.name);
@@ -1018,6 +1066,7 @@ $("vShareBtn").onclick = () => {
   const rel = it && it.additional && it.additional.file_location;
   if (rel) Admin.share(rel, it.type);
 };
+$("vBest").onclick = toggleBest;
 $("vNext").onclick = next;
 $("vPrev").onclick = prev;
 $("vClose").onclick = () => closeViewer(false);
@@ -1031,6 +1080,7 @@ addEventListener("keydown", (e) => {
   else if (e.key === "ArrowLeft") prev();
   else if (e.key === "Escape") closeViewer(false);
   else if (e.key === "i") $("vInfoBtn").click();
+  else if (e.key === "b" && !e.ctrlKey && !e.metaKey && !e.altKey) toggleBest();
 });
 let tx = null, ty = null;
 $("vStage").addEventListener("touchstart", (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });

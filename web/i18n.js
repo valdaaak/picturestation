@@ -116,6 +116,44 @@ const I18N_SK = {
   "Remove tag": "Odobrať tag",
   "Add tag": "Pridať tag",
   "The tag was saved here, but writing it to Synology Photos failed.": "Tag je uložený tu, ale zápis do Synology Photos zlyhal.",
+  "Remove from Best Foto (b)": "Odobrať z Best Foto (b)",
+  "In Best Foto": "Je v Best Foto",
+  "Waiting for approval. Click to take the suggestion back (b)": "Čaká na schválenie. Klikom návrh stiahneš (b)",
+  "Add to Best Foto (b)": "Pridať do Best Foto (b)",
+  "Suggest for Best Foto (b)": "Navrhnúť do Best Foto (b)",
+  "Only the administrator can take a photo out of Best Foto.": "Fotku z Best Foto vie odobrať len správca.",
+  "You have too many suggestions waiting. Wait for the administrator to go through them.": "Máš priveľa čakajúcich návrhov. Počkaj, kým ich správca prejde.",
+  "Sign in to mark photos.": "Na označovanie fotiek sa prihlás.",
+  "Best Foto could not be saved.": "Best Foto sa nepodarilo uložiť.",
+  "Best Foto": "Best Foto",
+  "Best Foto ({n})": "Best Foto ({n})",
+  "Photos that users marked with the heart. Approving gives the photo the tag “{tag}”, rejecting only drops the suggestion. Your own heart tags a photo right away.": "Fotky, ktoré používatelia označili srdiečkom. Schválením dostane fotka tag „{tag}“, zamietnutím sa zahodí len návrh. Tvoje vlastné srdiečko tag pridá hneď.",
+  "{n} suggested photos are not on disk right now.": [
+    "{n} navrhnutá fotka teraz nie je na disku.",
+    "{n} navrhnuté fotky teraz nie sú na disku.",
+    "{n} navrhnutých fotiek teraz nie je na disku."
+  ],
+  "No suggestions are waiting.": "Žiadne návrhy nečakajú.",
+  "Approved, but {n} photos were not written to Synology Photos.": [
+    "Schválené, ale {n} fotka sa nezapísala do Synology Photos.",
+    "Schválené, ale {n} fotky sa nezapísali do Synology Photos.",
+    "Schválené, ale {n} fotiek sa nezapísalo do Synology Photos."
+  ],
+  "{n} photos approved.": [
+    "{n} fotka schválená.",
+    "{n} fotky schválené.",
+    "{n} fotiek schválených."
+  ],
+  "Approve all {n} photos?": [
+    "Schváliť {n} fotku?",
+    "Schváliť všetky {n} fotky?",
+    "Schváliť všetkých {n} fotiek?"
+  ],
+  "Approve all": "Schváliť všetko",
+  "Open the photo": "Otvoriť fotku",
+  "Approve": "Schváliť",
+  "Reject": "Zamietnuť",
+  "Suggestion rejected.": "Návrh zamietnutý.",
   "The tag was saved here. Synology Photos does not have this file yet, so it was not written there.":
     "Tag je uložený tu. Synology Photos tento súbor ešte nemá, preto sa tam nezapísal.",
   "Error": "Chyba",

@@ -6,6 +6,7 @@
   --muted: #9a978f;
   --line: #2a2b30;
   --accent: #e8a33d;
+  --heart: #f0566a;
   --tile: #202126;
   --radius: 10px;
   --gap: 4px;
@@ -81,6 +82,11 @@ main { padding: 12px 16px 40px; }
   transition: opacity .15s; pointer-events: none; }
 .tile .tile-live.ok { opacity: 1; }
 .tile:has(.tile-live.ok) .badge.live { z-index: 1; color: var(--accent); }
+.tile .best { position: absolute; right: 6px; top: 6px; width: 18px; height: 18px; color: var(--heart);
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / .75)); pointer-events: none; }
+.tile .best svg, .v-best svg { display: block; width: 100%; height: 100%; fill: currentColor; stroke: currentColor;
+  stroke-width: 1.8; stroke-linejoin: round; }
+.tile .best.pending svg, .v-best.pending svg { fill-opacity: .3; stroke-dasharray: 2.6 2.2; }
 .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .empty { color: var(--muted); padding: 40px 0; text-align: center; }
@@ -98,6 +104,16 @@ main { padding: 12px 16px 40px; }
 .v-actions { flex: 0 0 auto; display: flex; gap: 14px; white-space: nowrap; }
 .v-actions button, .v-actions a { background: none; border: 0; color: #eee; cursor: pointer; padding: 4px; }
 .v-actions button:hover, .v-actions a:hover { color: var(--accent); }
+.v-actions .v-best { width: 30px; height: 30px; padding: 4px; align-self: center; transition: transform .12s; }
+.v-best svg { fill-opacity: 0; }
+.v-actions .v-best:hover { color: var(--heart); }
+.v-actions .v-best.on, .v-actions .v-best.pending { color: var(--heart); }
+.v-best.on svg { fill-opacity: 1; }
+.v-best:active { transform: scale(.88); }
+.v-best:disabled { cursor: default; }
+.v-best.busy { opacity: .5; }
+.v-best:focus-visible { outline: 2px solid var(--heart); outline-offset: 2px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .v-actions .v-best { transition: none; } }
 .v-stage { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden;
   touch-action: pan-y; min-width: 0; min-height: 0; }
 .v-stage img, .v-stage video { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
@@ -152,6 +168,13 @@ dialog .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6
 .adm-new input.code { flex: 0 1 140px; font-family: ui-monospace, Consolas, monospace; font-size: 18px; letter-spacing: .15em; text-transform: uppercase; }
 .card { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
 .card.off { opacity: .6; }
+.best-all { margin: 0 0 12px; }
+.best-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.best-card { margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.best-card a { display: block; aspect-ratio: 4 / 3; background: var(--tile); }
+.best-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.best-card figcaption { padding: 9px 12px 11px; display: grid; gap: 3px; overflow-wrap: anywhere; }
+.best-card .acc-btns { margin-top: 5px; }
 .card-h { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 6px; }
 .card-a { display: flex; gap: 10px; }
 .muted { color: var(--muted); font-size: 13px; margin: 4px 0; }

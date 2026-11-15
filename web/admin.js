@@ -229,13 +229,15 @@ const Admin = (() => {
 
   function draw() {
     const tabs = [["users", t("Users")], ["groups", t("Groups")], ["guest", t("Without signing in")],
-      ["shares", t("Shares")], ["tv", t("TV")], ["moves", t("Moves")], ["general", t("General")]];
+      ["shares", t("Shares")], ["best", st.best_pending ? t("Best Foto ({n})", { n: st.best_pending }) : t("Best Foto")],
+      ["tv", t("TV")], ["moves", t("Moves")], ["general", t("General")]];
     if (st.is_main) tabs.push(["galleries", t("Galleries")]);
     if (tab === "galleries" && !st.is_main) tab = "users";
     const nav = h("nav", { class: "adm-tabs" }, tabs.map(([k, label]) =>
       h("button", { type: "button", class: k === tab ? "on" : "", onclick: () => { tab = k; draw(); } }, label)));
     const body = { users: drawUsers, groups: drawGroups, guest: drawGuest, general: drawGeneral,
       shares: () => { const w = h("div", { class: "adm-body" }); drawShares(w); return w; },
+      best: () => { const w = h("div", { class: "adm-body" }); drawBestTab(w); return w; },
       tv: () => { const w = h("div", { class: "adm-body" }); drawDevices(w); return w; },
       moves: () => { const w = h("div", { class: "adm-body" }); drawMoves(w); return w; },
       galleries: () => { const w = h("div", { class: "adm-body" }); drawGalleries(w); return w; } }[tab]();
@@ -731,6 +733,49 @@ const Admin = (() => {
         dlg.close();
     });
     const dlg = openDlg(f);
+  }
+
+  // ---------- Best Foto: navrhy pouzivatelov ----------
+  async function drawBestTab(wrap) {
+    let s;
+    try { s = await req("best_list"); } catch (e) { wrap.append(h("p", { class: "err" }, e.message)); return; }
+    wrap.append(h("p", { class: "muted" }, t("Photos that users marked with the heart. Approving gives the photo the tag “{tag}”, "
+      + "rejecting only drops the suggestion. Your own heart tags a photo right away.", { tag: s.tag })));
+    if (s.missing) wrap.append(h("p", { class: "muted" }, tn(s.missing, "{n} suggested photo is not on disk right now.",
+      "{n} suggested photos are not on disk right now.")));
+    if (!s.items.length) { wrap.append(h("p", { class: "muted" }, t("No suggestions are waiting."))); return; }
+
+    const approve = async (paths) => {
+      try {
+        const r = await req("best_approve", { paths });
+        if (r.synology_failed) toast(tn(r.synology_failed, "Approved, but {n} photo was not written to Synology Photos.",
+          "Approved, but {n} photos were not written to Synology Photos."), true);
+        else toast(tn(r.approved, "{n} photo approved.", "{n} photos approved."));
+      } catch (e) { toast(e.message, true); }
+      await load();
+    };
+    if (s.items.length > 1) {
+      wrap.append(h("div", { class: "best-all" }, h("button", { type: "button", class: "primary", onclick: async (e) => {
+        if (!confirm(tn(s.items.length, "Approve {n} photo?", "Approve all {n} photos?"))) return;
+        e.target.disabled = true;
+        await approve(s.items.map((x) => x.path));
+      } }, t("Approve all"))));
+    }
+    const grid = h("div", { class: "best-grid" });
+    for (const x of s.items) {
+      const dir = x.path.includes("/") ? x.path.slice(0, x.path.lastIndexOf("/")) : "";
+      grid.append(h("figure", { class: "best-card card" },
+        h("a", { href: thumbUrl(x.item, "large"), target: "_blank", rel: "noopener", title: t("Open the photo") },
+          x.item.thumbnail_status !== "default" ? h("img", { src: thumbUrl(x.item, "small"), loading: "lazy", alt: x.item.info.name }) : x.item.info.name),
+        h("figcaption", null,
+          h("strong", null, x.users.join(", ")),
+          h("div", { class: "muted" }, fmtDay(x.created) + (dir ? " · " + dir : "")),
+          h("span", { class: "acc-btns" },
+            h("button", { type: "button", class: "link add", onclick: (e) => { e.target.disabled = true; approve([x.path]); } }, t("Approve")),
+            h("button", { type: "button", class: "link danger", onclick: () => act("best_reject", { paths: [x.path] }, t("Suggestion rejected.")) },
+              t("Reject"))))));
+    }
+    wrap.append(grid);
   }
 
   // ---------- presuny albumov ----------
