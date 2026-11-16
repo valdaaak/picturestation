@@ -320,4 +320,26 @@
     <string name="best_failed">Best Foto sa nepodarilo uložiť</string>
     <string name="best_synology_failed">Uložené tu, ale nezapísané do Synology Photos</string>
     <string name="best_hint_tv">Podrž OK: Best Foto</string>
+    <string name="tab_best">Best Foto</string>
+    <string name="best_adm_help">Fotky, ktoré používatelia navrhli do Best Foto. Schválením sa pridá tag, zamietnutím sa návrh zahodí. Ťuknutím na fotku ju zväčšíš.</string>
+    <string name="best_adm_none">Nečakajú žiadne návrhy.</string>
+    <string name="best_adm_by">Navrhol: %1$s, %2$s</string>
+    <string name="best_approve">Schváliť</string>
+    <string name="best_reject">Zamietnuť</string>
+    <string name="best_rejected">Návrh zamietnutý</string>
+    <plurals name="best_approved">
+        <item quantity="one">Schválená %1$d fotka</item>
+        <item quantity="few">Schválené %1$d fotky</item>
+        <item quantity="other">Schválených %1$d fotiek</item>
+    </plurals>
+    <plurals name="best_approve_all">
+        <item quantity="one">Schváliť %1$d fotku</item>
+        <item quantity="few">Schváliť všetky %1$d fotky</item>
+        <item quantity="other">Schváliť všetkých %1$d fotiek</item>
+    </plurals>
+    <plurals name="best_approve_all_q">
+        <item quantity="one">Pridať %1$d fotku do Best Foto?</item>
+        <item quantity="few">Pridať všetky %1$d fotky do Best Foto?</item>
+        <item quantity="other">Pridať všetkých %1$d fotiek do Best Foto?</item>
+    </plurals>
 </resources>

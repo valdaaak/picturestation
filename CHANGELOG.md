@@ -4,6 +4,8 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+- Android 0.2.12: Administration has a Best Foto tab on phones and tablets, like the web's Settings, Best Foto: the suggested photos with who suggested them, Approve and Reject for each, and Approve all; the tab shows how many wait.
+
 ## 0.5.1 – 2026-11-16
 
 - Album covers are written to Synology Photos. With `SYNO_WRITE_TAGS=1`, a cover photo set in the main gallery (web, the Android app, the DS photo app) becomes the cover of that folder in the shared space of Synology Photos (`SYNO.FotoTeam.Browse.Folder` `set_cover`). The cover in the gallery is saved in any case, and the web says so when Synology Photos could not be written or does not have the folder or file yet. Resetting a cover leaves Synology Photos as it is; covers set there are not read back. Private galleries are not written.

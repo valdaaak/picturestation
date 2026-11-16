@@ -24,6 +24,7 @@ import org.picturestation.app.ui.Paper
 @Composable
 fun tabLabel(t: AdminTab): String = stringResource(when (t) {
     AdminTab.TV -> R.string.tab_tv
+    AdminTab.BEST -> R.string.tab_best
     AdminTab.USERS -> R.string.tab_users
     AdminTab.GROUPS -> R.string.tab_groups
     AdminTab.GUEST -> R.string.tab_guest
@@ -45,13 +46,14 @@ fun AdminScreen(vm: AppViewModel) {
         Column(modifier = Modifier.fillMaxSize().padding(pad)) {
             ScrollableTabRow(selectedTabIndex = selected, containerColor = Navy, contentColor = Paper, edgePadding = 8.dp) {
                 tabs.forEach { t ->
-                    Tab(selected = st.tab == t, onClick = { st.tab = t; vm.adminLoadTab(t) }, text = { Text(tabLabel(t)) },
+                    Tab(selected = st.tab == t, onClick = { st.tab = t; vm.adminLoadTab(t) }, text = { Text(tabLabel(t) + if (t == AdminTab.BEST && (info?.bestPending ?: 0) > 0) " (${info?.bestPending})" else "") },
                         selectedContentColor = Amber, unselectedContentColor = Muted)
                 }
             }
             if (info == null) EmptyOrError(st.loading, st.error, null) { vm.adminReload() }
             else when (st.tab) {
                 AdminTab.TV -> TvTab(vm, st, info)
+                AdminTab.BEST -> BestTab(vm, st)
                 AdminTab.USERS -> UsersTab(vm, st, info)
                 AdminTab.GROUPS -> GroupsTab(vm, st, info)
                 AdminTab.GUEST -> GuestTab(vm, st, info)

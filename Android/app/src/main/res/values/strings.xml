@@ -315,4 +315,23 @@
     <string name="best_failed">Best Foto could not be saved</string>
     <string name="best_synology_failed">Saved here, but not written to Synology Photos</string>
     <string name="best_hint_tv">Hold OK: Best Foto</string>
+    <string name="tab_best">Best Foto</string>
+    <string name="best_adm_help">Photos that users suggested for Best Foto. Approving adds the tag, rejecting drops the suggestion. Tap a photo to see it larger.</string>
+    <string name="best_adm_none">No suggestions are waiting.</string>
+    <string name="best_adm_by">Suggested by %1$s, %2$s</string>
+    <string name="best_approve">Approve</string>
+    <string name="best_reject">Reject</string>
+    <string name="best_rejected">Suggestion rejected</string>
+    <plurals name="best_approved">
+        <item quantity="one">%1$d photo approved</item>
+        <item quantity="other">%1$d photos approved</item>
+    </plurals>
+    <plurals name="best_approve_all">
+        <item quantity="one">Approve %1$d photo</item>
+        <item quantity="other">Approve all %1$d photos</item>
+    </plurals>
+    <plurals name="best_approve_all_q">
+        <item quantity="one">Add %1$d photo to Best Foto?</item>
+        <item quantity="other">Add all %1$d photos to Best Foto?</item>
+    </plurals>
 </resources>

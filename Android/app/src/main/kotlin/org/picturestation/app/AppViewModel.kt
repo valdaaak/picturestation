@@ -343,6 +343,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 AdminTab.TV -> if (force || st.devices == null) st.devices = adminApi.deviceList()
                 AdminTab.SHARES -> if (force || st.shares == null) st.shares = adminApi.shareList()
                 AdminTab.MOVES -> if (force || st.moves == null) st.moves = adminApi.movesState()
+                AdminTab.BEST -> if (force || st.best == null) st.best = adminApi.bestList()
                 AdminTab.GALLERIES -> if (st.info?.isMain == true && (force || st.galleries == null)) st.galleries = adminApi.galleriesList()
                 else -> {}
             }

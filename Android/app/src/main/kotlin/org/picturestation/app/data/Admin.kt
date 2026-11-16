@@ -79,6 +79,11 @@ class AdminApi(private val api: Api) {
         Device(o.optInt("id"), o.optString("name"), o.optString("username"), o.optLong("created"),
             o.optLong("last_seen").takeIf { it > 0 })   // 0 or null: not used yet
     }
+    /** The photos suggested for Best Foto that wait for the administrator, oldest first. */
+    suspend fun bestList(): List<BestProposal> = get("best_list").optJSONArray("items").objects().mapNotNull { o ->
+        val item = o.optJSONObject("item") ?: return@mapNotNull null
+        BestProposal(o.optString("path"), parseItem(item), o.optJSONArray("users").strings(), o.optLong("created"))
+    }
     suspend fun tagNames(): List<String> = get("tag_names").optJSONArray("tags").strings()
     suspend fun movesState(): MovesState = get("moves_state").let { o ->
         MovesState(
@@ -109,7 +114,7 @@ class AdminApi(private val api: Api) {
     private fun parseInfo(o: JSONObject): AdminInfo {
         val s = o.optJSONObject("settings") ?: JSONObject()
         return AdminInfo(
-            version = o.optString("version"), isMain = o.optBoolean("is_main"),
+            version = o.optString("version"), isMain = o.optBoolean("is_main"), bestPending = o.optInt("best_pending"),
             users = o.optJSONArray("users").objects().map { u ->
                 AdminUser(u.optString("username"), u.optBoolean("admin"), u.optBoolean("disabled"), u.optString("note"),
                     parseGrants(u.optJSONArray("grants")), u.optJSONArray("groups").strings())
@@ -139,7 +144,9 @@ data class Grant(val path: String, val deny: Boolean)
 data class AdminUser(val username: String, val admin: Boolean, val disabled: Boolean, val note: String, val grants: List<Grant>, val groups: List<String>)
 data class AdminGroup(val name: String, val note: String, val members: List<String>, val grants: List<Grant>)
 data class AdminSettings(val title: String, val rootAlbumOrder: String, val language: String, val flags: Map<String, Boolean>)
-data class AdminInfo(val version: String, val isMain: Boolean, val users: List<AdminUser>, val groups: List<AdminGroup>,
+/** A photo suggested for Best Foto: who suggested it and when the first suggestion came. */
+data class BestProposal(val path: String, val item: Item, val users: List<String>, val created: Long)
+data class AdminInfo(val version: String, val isMain: Boolean, val bestPending: Int, val users: List<AdminUser>, val groups: List<AdminGroup>,
                      val guestGrants: List<Grant>, val settings: AdminSettings)
 /** Where an inherited rule comes from: an admin sees everything, or a rule on `path` (maybe through groups). */
 data class Via(val admin: Boolean, val deny: Boolean, val path: String, val groups: List<String>)
