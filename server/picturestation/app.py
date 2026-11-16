@@ -858,6 +858,7 @@ def api_cover(ctx: Ctx):
     store.db().execute("INSERT INTO album_props(path, cover) VALUES (?,?) "
                        "ON CONFLICT(path) DO UPDATE SET cover=excluded.cover", (rel, irel))
     media.clear_cover_cache()
+    admin.push_cover(rel, irel)
     return ok()
 
 

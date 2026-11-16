@@ -396,7 +396,23 @@ def album_set(_me, b):
                "VALUES (?,?,?,?,?,?,?)",
                (rel, cur["title"], cur["description"], cur["cover"], cur["mode"], cur["pw_hash"], cur.get("album_order")))
     media.clear_cover_cache()
+    if "cover" in b and cur["cover"]:
+        return {"ok": True, "synology": push_cover(rel, cur["cover"])}
     return {"ok": True}
+
+
+def push_cover(album, cover) -> str:
+    """Sets the cover of the folder in Synology Photos too, when writing there is turned on (SYNO_WRITE_TAGS).
+    The cover in the gallery stays whatever happens there: 'ok', 'missing' (Synology Photos does not have the
+    folder or the file), 'failed' or 'off'. Resetting a cover here leaves Synology Photos as it is."""
+    from . import synosync
+    if not synosync.write_enabled():
+        return "off"
+    try:
+        return synosync.push_cover(album, cover)
+    except Exception as e:
+        synosync.log.warning("cover %s of %s not written to Synology Photos: %s", cover, album, e)
+        return "failed"
 
 
 def share_create(me, b):

@@ -837,6 +837,33 @@ check("tag zmizly v Synology zmizne aj tu", _syno_rows() == []
 sdb.execute("DELETE FROM tag_suppress WHERE tag_id=?", (tid,))
 sdb.execute("DELETE FROM tags WHERE id=?", (tid,))
 
+# --- titulka albumu do Synology Photos ---
+r = adm("album_set", {"path": "2001/Rodina", "cover": "2001/Rodina/a.jpg"}).json()
+check("titulka: zapis do Synology vypnuty", r == {"ok": True, "synology": "off"}, r)
+_cov, _we, _pc = [], synosync.write_enabled, synosync.push_cover
+synosync.write_enabled = lambda: True
+synosync.push_cover = lambda a, f: _cov.append((a, f)) or "ok"
+r = adm("album_set", {"path": "2001/Rodina", "cover": "2001/Rodina/a.jpg"}).json()
+check("titulka sa zapise do Synology", r == {"ok": True, "synology": "ok"} and _cov == [("2001/Rodina", "2001/Rodina/a.jpg")], (r, _cov))
+r = adm("album_set", {"path": "2001/Rodina", "title": "Rodina"}).json()
+check("ina zmena albumu titulku neposiela", r == {"ok": True} and len(_cov) == 1, (r, _cov))
+r = call("cover.php", api="SYNO.PhotoStation.Cover", method="set", version="1", id=ids.album_id("2001/Rodina"),
+         item_id=ids.item_id("photo", "2001/Rodina/a.jpg"))
+check("titulka z appky DS photo sa zapise tiez", r["success"] and len(_cov) == 2, (r, _cov))
+
+
+def _boom(a, f):
+    raise RuntimeError("nedostupne")
+
+
+synosync.push_cover = _boom
+r = adm("album_set", {"path": "2001/Rodina", "cover": "2001/Rodina/a.jpg"}).json()
+check("zlyhanie Synology titulku tu nepokazi", r == {"ok": True, "synology": "failed"}
+      and adm("album_get?path=2001/Rodina").json()["cover"] == "2001/Rodina/a.jpg", r)
+r = adm("album_set", {"path": "2001/Rodina", "cover": "", "title": ""}).json()
+check("zrusenie titulky Synology necha tak", r == {"ok": True}, r)
+synosync.write_enabled, synosync.push_cover = _we, _pc
+
 # --- titulna fotka nadradeneho albumu z podalbumu ---
 check("titulna pre nadradeny album", adm("album_set", {"path": "2001", "cover": "2001/Rodina/a.jpg"}).status_code == 200)
 r = call("album.php", api="SYNO.PhotoStation.Album", method="list", version="1", type="album")

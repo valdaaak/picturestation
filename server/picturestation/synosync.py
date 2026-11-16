@@ -312,6 +312,21 @@ def push_tag(rel: str, name: str, add: bool) -> str:
         _logout(sid)
 
 
+def push_cover(album: str, cover: str) -> str:
+    """Nastavi subor `cover` ako titulku priecinka `album` v Synology Photos (to iste, co jeho "Nastavit ako
+    titulku priecinka"). Vrati 'ok', alebo 'missing', ked Synology Photos priecinok alebo subor (este) nema."""
+    sid = _login()
+    try:
+        fid = _folder_id(sid, album)
+        item = _item_id(sid, cover) if fid is not None else None
+        if item is None:
+            return "missing"
+        _ok(_call("SYNO.FotoTeam.Browse.Folder", "set_cover", 2, sid, id=fid, id_item=[item]), "zapis titulky")
+        return "ok"
+    finally:
+        _logout(sid)
+
+
 def start():
     if not enabled():
         log.info("people from Synology Photos: off (SYNO_URL/USER/PASS_FILE not set)")

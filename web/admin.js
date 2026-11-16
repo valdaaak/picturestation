@@ -463,8 +463,10 @@ const Admin = (() => {
     const albums = parts.map((_, i) => parts.slice(0, parts.length - i).join("/"));
     const apply = async (path) => {
       try {
-        await req("album_set", { path, cover: rel });
-        toast(t("Cover photo set for album {name}.", { name: path.split("/").pop() }));
+        const r = await req("album_set", { path, cover: rel });
+        if (r.synology === "failed") toast(t("The cover was set here, but writing it to Synology Photos failed."), true);
+        else if (r.synology === "missing") toast(t("The cover was set here. Synology Photos does not have this folder or file yet, so it was not written there."), true);
+        else toast(t("Cover photo set for album {name}.", { name: path.split("/").pop() }));
         return true;
       } catch (e) { toast(e.message, true); return false; }
     };

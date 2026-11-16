@@ -291,6 +291,8 @@ const I18N_SK = {
   "Select: {name}": "Vybrať: {name}",
   "A photo in the root does not belong to any album.": "Fotka v koreni nepatrí do žiadneho albumu.",
   "Cover photo set for album {name}.": "Titulná fotka nastavená pre album {name}.",
+  "The cover was set here, but writing it to Synology Photos failed.": "Titulka je nastavená tu, ale zápis do Synology Photos zlyhal.",
+  "The cover was set here. Synology Photos does not have this folder or file yet, so it was not written there.": "Titulka je nastavená tu. Synology Photos tento priečinok alebo súbor ešte nemá, preto sa tam nezapísala.",
   "Cover photo for album": "Titulná fotka pre album",
   "You can set the photo as the cover of its album or of any parent album.": "Fotku môžeš nastaviť ako titulnú pre album, v ktorom je, alebo pre ktorýkoľvek nadradený.",
   "this album": "tento album",

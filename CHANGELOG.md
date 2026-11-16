@@ -4,6 +4,9 @@ Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. E
 
 ## Unreleased
 
+## 0.5.1 – 2026-11-16
+
+- Album covers are written to Synology Photos. With `SYNO_WRITE_TAGS=1`, a cover photo set in the main gallery (web, the Android app, the DS photo app) becomes the cover of that folder in the shared space of Synology Photos (`SYNO.FotoTeam.Browse.Folder` `set_cover`). The cover in the gallery is saved in any case, and the web says so when Synology Photos could not be written or does not have the folder or file yet. Resetting a cover leaves Synology Photos as it is; covers set there are not read back. Private galleries are not written.
 - Android 0.2.11: on a TV, holding OK in the viewer is the Best Foto heart (a remote without colour buttons, such as the Chromecast's, has no yellow button); a short OK still starts and pauses the slideshow, now at release. The caption shows the hint.
 
 ## 0.5.0 – 2026-11-15
