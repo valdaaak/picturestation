@@ -249,7 +249,7 @@ def _nfc(s: str) -> str:
 def _ok(r, what):
     if not r.get("success"):
         raise RuntimeError(f"{what}: {r.get('error')}")
-    return r["data"]
+    return r.get("data") or {}      # niektore zapisy (Folder set_cover) vracaju len {"success": true}
 
 
 def _folder_id(sid, folder: str):

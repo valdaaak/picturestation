@@ -863,6 +863,20 @@ check("zlyhanie Synology titulku tu nepokazi", r == {"ok": True, "synology": "fa
 r = adm("album_set", {"path": "2001/Rodina", "cover": "", "title": ""}).json()
 check("zrusenie titulky Synology necha tak", r == {"ok": True}, r)
 synosync.write_enabled, synosync.push_cover = _we, _pc
+# Folder set_cover odpovie len {"success": true} bez "data" (overene naostro 2026-11-19)
+_calls, _orig = [], (synosync._login, synosync._logout, synosync._call)
+synosync._login, synosync._logout = (lambda: "sid"), (lambda sid: None)
+_fo_orig, _fi_orig = synosync._folder_id, synosync._item_id
+synosync._folder_id, synosync._item_id = (lambda sid, f: 7), (lambda sid, rel: 42)
+synosync._call = lambda api, method, ver, sid, **kw: _calls.append((api, method, kw)) or {"success": True}
+try:
+    res = synosync.push_cover("2001/Rodina", "2001/Rodina/a.jpg")
+except Exception as e:  # noqa: BLE001
+    res = repr(e)
+check("set_cover bez 'data' v odpovedi je ok", res == "ok" and _calls == [("SYNO.FotoTeam.Browse.Folder", "set_cover",
+      {"id": 7, "id_item": [42]})], (res, _calls))
+synosync._login, synosync._logout, synosync._call = _orig
+synosync._folder_id, synosync._item_id = _fo_orig, _fi_orig
 
 # --- titulna fotka nadradeneho albumu z podalbumu ---
 check("titulna pre nadradeny album", adm("album_set", {"path": "2001", "cover": "2001/Rodina/a.jpg"}).status_code == 200)

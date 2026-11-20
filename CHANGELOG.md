@@ -2,7 +2,9 @@
 
 Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. Every release is a git tag `vX.Y.Z`. The Docker image carries the same version.
 
-## Unreleased
+## 0.5.2 – 2026-11-20
+
+- Fix: writing an album cover to Synology Photos reported a failure although the cover was set (`Folder set_cover` answers without `data`).
 
 - Android 0.2.12: Administration has a Best Foto tab on phones and tablets, like the web's Settings, Best Foto: the suggested photos with who suggested them, Approve and Reject for each, and Approve all; the tab shows how many wait.
 
