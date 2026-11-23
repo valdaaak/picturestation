@@ -234,7 +234,7 @@ fun BrowseScreen(
                             LiveBadge(Modifier.align(Alignment.TopEnd), if (vm.isTv) 14.sp else 10.sp)
                         }
                         if (it.isFolder) {
-                            // "2026-10-24 Marianka Stuzkova": the date gets its own small line, the name two lines
+                            // "2024-05-01 Spring Trip": the date gets its own small line, the name two lines
                             // in a condensed face, so that more of it fits on a narrow tile
                             val m = DATED.find(it.title)
                             val date = m?.groupValues?.get(1)
