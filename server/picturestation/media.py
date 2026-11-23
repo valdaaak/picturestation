@@ -53,6 +53,28 @@ def fmt_ts(ts: float) -> str:
     return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
+# 20261018_213903_3.jpg, VideoCapture_20210326-090236.jpg, 20190417_011024_IMG_8599.JPG
+_NAME_DATE = re.compile(r"(?<!\d)((?:19|20)\d\d)(\d\d)(\d\d)[_-](\d\d)(\d\d)(\d\d)(?!\d)")
+
+
+def name_date(name: str):
+    """Date and time in the file name as phones write it (YYYYMMDD_HHMMSS), or None."""
+    mo = _NAME_DATE.search(name or "")
+    if not mo:
+        return None
+    try:
+        d = datetime(*map(int, mo.groups()))
+    except ValueError:
+        return None
+    return d.strftime("%Y-%m-%d %H:%M:%S") if d <= datetime.now() else None
+
+
+def fallback_taken(name: str, mtime: float) -> str:
+    """Date taken of a file without one in its metadata: from the file name, else the time it was last changed.
+    An edited copy often loses EXIF and gets a new mtime, while its name still says when it was taken."""
+    return name_date(name) or fmt_ts(mtime)
+
+
 def _clean(v) -> str:
     return str(v or "").replace(NUL, "").strip()
 
@@ -385,7 +407,13 @@ def get_meta(f: dict) -> dict:
     # videa (v2) a fotky bez klucovych slov; HEIC/RAW chcu v4 (exiftool), ostatne fotky v3
     need = 2 if f["kind"] != "photo" else (4 if exiftool_fmt else 3)
     if m is not None and m.get("v", 1) >= need:
-        if _add_place(m):
+        changed = _add_place(m)
+        if m.get("taken") == fmt_ts(f["mtime"]):
+            # read before the date in the file name was used; fix it without reading the file again
+            t = fallback_taken(f["name"], f["mtime"])
+            if t != m["taken"]:
+                m["taken"], changed = t, True
+        if changed:
             store.meta_put(f["rel"], f["mtime"], f["size"], f["kind"], m)
         return m
     p = ids.abs_path(f["rel"])
@@ -402,7 +430,8 @@ def get_meta(f: dict) -> dict:
         m = _probe_video(p)
     # HEIC/RAW bez exiftoolu: ponechaj v3, nech sa precita znovu, ak sa exiftool neskor doinstaluje
     m["v"] = 3 if (exiftool_fmt and not EXIFTOOL) else need
-    m.setdefault("taken", fmt_ts(f["mtime"]))
+    if not m.get("taken"):
+        m["taken"] = fallback_taken(f["name"], f["mtime"])
     _add_place(m)
     store.meta_put(f["rel"], f["mtime"], f["size"], f["kind"], m)
     if f["kind"] == "photo":

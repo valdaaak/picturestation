@@ -2,6 +2,10 @@
 
 Versions follow [semantic versioning](https://semver.org/): MAJOR.MINOR.PATCH. Every release is a git tag `vX.Y.Z`. The Docker image carries the same version.
 
+## 0.5.3 – 2026-11-23
+
+- Fix: a photo or video without a date taken in its metadata got the time its file was last changed, so an edited copy from a phone (which often loses EXIF) jumped to the top of the timeline. The date and time in the file name (`20261018_213903_3.jpg`, `VideoCapture_20210326-090236.jpg`) now come first and the file time only after that. Files indexed before are corrected on the next index pass without being read again.
+
 ## 0.5.2 – 2026-11-20
 
 - Fix: writing an album cover to Synology Photos reported a failure although the cover was set (`Folder set_cover` answers without `data`).

@@ -1235,5 +1235,32 @@ r = c.get("/app/Picturestation.apk")
 check("/app/Picturestation.apk sa servuje", r.status_code == 200 and r.content.startswith(b"PK"),
       (r.status_code, r.headers.get("content-type")))
 
+# --- datum odfotenia bez EXIF: z mena suboru, az potom cas zmeny suboru ---
+check("datum z mena", media.name_date("20261018_213903_3.jpg") == "2026-10-18 21:39:03")
+check("datum z mena s pomlckou", media.name_date("VideoCapture_20210326-090236.jpg") == "2021-03-26 09:02:36")
+check("bez casu v mene nic", media.name_date("IMG-20240211-WA0000.jpg") is None)
+check("nezmyselny datum nic", media.name_date("20261318_213903.jpg") is None)
+check("datum v buducnosti nic", media.name_date("20991018_213903.jpg") is None)
+_edited = "Upravene/20261018_213903_3.jpg"
+photo(_edited)                                 # bez datumu v EXIF, ako upravena kopia z mobilu
+_ep = os.path.join(ROOT, _edited)
+os.utime(_ep, (time.time(), time.time()))
+_fe = media.file_entry(_edited)
+check("bez EXIF datum z mena", media.get_meta(_fe)["taken"] == "2026-10-18 21:39:03", media.get_meta(_fe))
+photo("Upravene/bez_datumu.jpg")
+_fe = media.file_entry("Upravene/bez_datumu.jpg")
+check("bez EXIF a datumu v mene = cas suboru", media.get_meta(_fe)["taken"] == media.fmt_ts(_fe["mtime"]))
+# stary zaznam z casu pred touto zmenou (taken = cas suboru) sa opravi bez noveho citania suboru
+_fe = media.file_entry(_edited)
+_m = media.get_meta(_fe)
+_m["taken"] = media.fmt_ts(_fe["mtime"])
+from picturestation import store as _store  # noqa: E402
+_store.meta_put(_edited, _fe["mtime"], _fe["size"], _fe["kind"], _m)
+check("stary zaznam opraveny z mena", media.get_meta(_fe)["taken"] == "2026-10-18 21:39:03")
+check("oprava ulozena", _store.meta_get(_edited, _fe["mtime"], _fe["size"])["taken"] == "2026-10-18 21:39:03")
+photo("Upravene/20200101_120000.jpg", exif_date="2020:05:05 10:00:00")
+check("EXIF ma prednost pred menom",
+      media.get_meta(media.file_entry("Upravene/20200101_120000.jpg"))["taken"] == "2020-05-05 10:00:00")
+
 print("\nCHYB:", fails)
 sys.exit(1 if fails else 0)
